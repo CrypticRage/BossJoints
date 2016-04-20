@@ -38,7 +38,7 @@ BoxJoint *BoxJoint::create(
 }
 
 // find the adjustment vector
-Ptr<Vector3D> BoxJoint::findAdjustmentVector(const Ptr<SketchLine>& line, double length)
+Ptr<Vector3D> BoxJoint::findScaleVector(const Ptr<SketchLine>& line, double length)
 {
     Ptr<Point3D> sp = line->startSketchPoint()->geometry();
     Ptr<Point3D> ep = line->endSketchPoint()->geometry();
@@ -50,10 +50,23 @@ Ptr<Vector3D> BoxJoint::findAdjustmentVector(const Ptr<SketchLine>& line, double
     return v1;
 }
 
-// extrude the gaps of the joint
 bool BoxJoint::extrudeGaps()
 {
-    Ptr<ObjectCollection> profileCollection = ProfileUtil::stripBorderProfile(m_profileSketch, m_borderProfile);
+    return extrudeProfiles(m_gapSketch);
+}
+
+bool BoxJoint::extrudeFillets()
+{
+    return extrudeProfiles(m_filletSketch);
+}
+
+// extrude the profiles from the given sketch
+bool BoxJoint::extrudeProfiles(const Ptr<Sketch>& sketch)
+{
+    Ptr<ObjectCollection> profileCollection = ProfileUtil::stripBorderProfile(sketch, m_borderProfile);
+
+    if (profileCollection->count() == 0)
+        return false;
 
     // create an extrusion input to be able to define the input needed for an extrusion
     // while specifying the profile and that a new component is to be created
@@ -85,23 +98,6 @@ bool BoxJoint::extrudeGaps()
     return true;
 }
 
-Ptr<SketchCircle> BoxJoint::drawFilletOutline(Ptr<Sketch>& sketch, const Ptr<Point3D>& centerPoint, const double radius)
-{
-    if (!sketch || !centerPoint)
-        return NULL;
-
-    if (!sketch->isValid() || !centerPoint->isValid())
-        return NULL;
-
-    if (radius <= 0.0)
-        return NULL;
-
-    Ptr<SketchCircle> outline;
-    outline = sketch->sketchCurves()->sketchCircles()->addByCenterRadius(centerPoint, radius);
-
-    return outline;
-}
-
 // create the sketch for all the dogbone fillets
 void BoxJoint::createFilletSketch(const double toolDiameter)
 {
@@ -113,239 +109,98 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     Ptr<Point3D> p1 = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
     Ptr<Point3D> p2 = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
     Ptr<Point3D> p3 = sketch->modelToSketchSpace(m_backPoint);
-    double distance = p1->distanceTo(p2);
 
+    double distance = p1->distanceTo(p2);
     unsigned int gapCount = m_toothCount - 1;
     double toothWidth = distance / (double)(m_toothCount + gapCount);
     double gapWidth = toothWidth;
 
-    Ptr<Vector3D> fullToothVector = p1->vectorTo(p2);
+    Ptr<Vector3D> toothWidthVector = p1->vectorTo(p2);
+    toothWidthVector->normalize();
+    toothWidthVector->scaleBy(toothWidth);
 
-    bool isOk = fullToothVector->normalize();
-    if (!isOk)
-        return;
+    Ptr<Vector3D> gapWidthVector = p1->vectorTo(p2);
+    gapWidthVector->normalize();
+    gapWidthVector->scaleBy(gapWidth);
 
-    isOk = fullToothVector->scaleBy(toothWidth);
-    if (!isOk)
-        return;
+    Ptr<Vector3D> negGapWidthVector = p2->vectorTo(p1);
+    negGapWidthVector->normalize();
+    negGapWidthVector->scaleBy(gapWidth);
 
-    Ptr<Vector3D> halfToothVector = fullToothVector->copy();
-    isOk = halfToothVector->scaleBy(0.5);
-    if (!isOk)
-        return;
+    Ptr<Vector3D> thicknessVector = p3->vectorTo(p1);
+    thicknessVector->normalize();
+    thicknessVector->scaleBy(m_matThickess);
 
-    Ptr<Vector3D> fullGapVector = fullToothVector->copy();
+    Ptr<Point3D> refPoint = p3->copy();
 
-    Ptr<Vector3D> halfGapVector = fullGapVector->copy();
-    isOk = halfGapVector->scaleBy(0.5);
-    if (!isOk)
-        return;
+    refPoint->translateBy(toothWidthVector);
+    Fillet refLeftFillet(refPoint, gapWidthVector, thicknessVector, toolDiameter);
+    refLeftFillet.drawRefSketch(sketch);
 
-    Ptr<Vector3D> tinyGapVector = fullGapVector->copy();
-    isOk = tinyGapVector->scaleBy(0.01);
-    if (!isOk)
-        return;
+    refPoint->translateBy(gapWidthVector);
+    Fillet refRightFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
+    refRightFillet.drawRefSketch(sketch);
 
-    Ptr<Vector3D> negTinyGapVector = tinyGapVector->copy();
-    isOk = negTinyGapVector->scaleBy(-1.0);
-    if (!isOk)
-        return;
+    Ptr<Vector3D> slideVector = toothWidthVector->copy();
+    slideVector->add(gapWidthVector);
 
-    Ptr<Vector3D> fullThicknessVector = p3->vectorTo(p1);
-
-    Ptr<Vector3D> quarterGapPerpVector = fullThicknessVector->copy();
-    isOk = quarterGapPerpVector->normalize();
-    if (!isOk)
-        return;
-    isOk = quarterGapPerpVector->scaleBy(0.25 * gapWidth);
-    if (!isOk)
-        return;
-
-    Ptr<Vector3D> quarterThicknessVector = fullThicknessVector->copy();
-    isOk = quarterThicknessVector->scaleBy(0.25);
-    if (!isOk)
-        return;
-
-    Ptr<Vector3D> halfThicknessVector = fullThicknessVector->copy();
-    isOk = halfThicknessVector->scaleBy(0.5);
-    if (!isOk)
-        return;
-
-    Ptr<Point3D> nearPoint;
-    Ptr<Point3D> midPoint;
-    Ptr<Point3D> farPoint;
-    Ptr<Point3D> nearAngleTextPoint;
-    Ptr<Point3D> farAngleTextPoint;
-
-    Ptr<SketchLine> nearLine;
-    Ptr<SketchLine> nearDiagLine;
-    Ptr<SketchLine> midLine;
-    Ptr<SketchLine> farLine;
-    Ptr<SketchLine> farDiagLine;
-
-    for (unsigned int i = 0; i < gapCount; i++)
+    for (unsigned int i = 1; i < gapCount; i++)
     {
-        // we have a tooth at the end, so we need to move past it
-        p1->translateBy(fullToothVector);
-        p3->translateBy(fullToothVector);
+        refPoint = refLeftFillet.centerPoint();
+        refPoint->translateBy(slideVector);
 
-        // save the current position of p3 as the near corner point
-        nearPoint = p3->copy();
+        Fillet leftFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
+        leftFillet.drawSketch(sketch, refPoint);
 
-        // draw the first straight reference line for the fillet on the
-        // nearest edge of the gap
-        nearLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p1, nearPoint);
-        nearLine->isConstruction(true);
-        nearLine->isFixed(true);
+        refPoint = refRightFillet.centerPoint();
+        refPoint->translateBy(slideVector);
 
-        // create the anchor point for the near 45 degree angle constraint text
-        nearAngleTextPoint = p3->copy();
-        nearAngleTextPoint->translateBy(quarterGapPerpVector);
-        nearAngleTextPoint->translateBy(tinyGapVector);
-
-        // move to the midpoint of the gap
-        p1->translateBy(halfGapVector);
-        p3->translateBy(halfGapVector);
-
-        // draw a line through the middle of the gap
-        midPoint = p3->copy();
-        isOk = midPoint->translateBy(halfThicknessVector);
-        if (!isOk)
-            return;
-
-        midLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p1, p3);
-        midLine->isConstruction(true);
-        midLine->isFixed(true);
-
-        // draw the diagonal line we'll use for the near fillet
-        nearDiagLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(nearPoint, midPoint);
-        nearDiagLine->isConstruction(true);
-        nearDiagLine->startSketchPoint()->isFixed(true);
-        sketch->geometricConstraints()->addCoincident(nearDiagLine->endSketchPoint(), midLine);
-
-        // create the near angle constraint
-        Ptr<SketchAngularDimension> nearAngularDim = sketch->sketchDimensions()->addAngularDimension(nearLine, nearDiagLine, nearAngleTextPoint);
-        Ptr<ModelParameter> nearAngleParam = nearAngularDim->parameter();
-        nearAngleParam->expression("45 deg");
-
-        // move to the farthest side of the gap
-        p1->translateBy(halfGapVector);
-        p3->translateBy(halfGapVector);
-
-        // save the current position of p3 as the far corner point
-        farPoint = p3->copy();
-
-        double constraintLength = nearDiagLine->length() - (toolDiameter / 2);
-
-        // draw the near fillet outline
-        Ptr<Point3D> diagEndPoint = nearDiagLine->endSketchPoint()->geometry();
-        Ptr<Vector3D> centerVector = diagEndPoint->vectorTo(nearPoint);
-        centerVector->normalize();
-        centerVector->scaleBy(constraintLength);
-        Ptr<SketchPoint> nearFilletCenter = sketch->sketchPoints()->add(diagEndPoint);
-        nearFilletCenter->move(centerVector);
-        sketch->geometricConstraints()->addCoincident(nearFilletCenter, nearDiagLine);
-
-        // add the near distance constraint
-        Ptr<Vector3D> nearLengthConstraintLabelVector = farPoint->vectorTo(diagEndPoint);
-        nearLengthConstraintLabelVector->normalize();
-        nearLengthConstraintLabelVector->scaleBy(gapWidth / 8);
-        Ptr<Point3D> nearLengthConstraintLabelPoint = diagEndPoint->copy();
-        nearLengthConstraintLabelPoint->translateBy(nearLengthConstraintLabelVector);
-
-        Ptr<SketchLinearDimension> nearLengthConstraint;
-        nearLengthConstraint = sketch->sketchDimensions()->addDistanceDimension(
-            nearFilletCenter,
-            nearDiagLine->endSketchPoint(),
-            DimensionOrientations::AlignedDimensionOrientation,
-            nearLengthConstraintLabelPoint
-            );
-
-        Ptr<ModelParameter> nearLengthParam = nearLengthConstraint->parameter();
-        nearLengthParam->value(constraintLength);
-
-        drawFilletOutline(sketch, nearFilletCenter->geometry(), toolDiameter / 2);
-
-        // create the anchor point for the far 45 degree angle constraint text
-        farAngleTextPoint = p3->copy();
-        farAngleTextPoint->translateBy(quarterGapPerpVector);
-        farAngleTextPoint->translateBy(negTinyGapVector);
-
-        // draw the second straight reference line for the fillet on the
-        // farthest edge of the gap
-        farLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p1, farPoint);
-        farLine->isConstruction(true);
-        farLine->isFixed(true);
-
-        // draw the diagnoal line we'll use for the far fillet
-        farDiagLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(farPoint, midPoint);
-        farDiagLine->isConstruction(true);
-        farDiagLine->startSketchPoint()->isFixed(true);
-        sketch->geometricConstraints()->addCoincident(farDiagLine->endSketchPoint(), midLine);
-
-        // create the far angle constraint
-        Ptr<SketchAngularDimension> farAngularDim = sketch->sketchDimensions()->addAngularDimension(farLine, farDiagLine, farAngleTextPoint);
-        Ptr<ModelParameter> farAngleParam = farAngularDim->parameter();
-        farAngleParam->expression("45 deg");
-
-        // draw the far fillet outline
-        diagEndPoint = farDiagLine->endSketchPoint()->geometry();
-        Ptr<Vector3D> centerVector2 = diagEndPoint->vectorTo(farPoint);
-        centerVector2->normalize();
-        centerVector2->scaleBy(constraintLength);
-        Ptr<SketchPoint> farFilletCenter = sketch->sketchPoints()->add(diagEndPoint);
-        farFilletCenter->move(centerVector2);
-        sketch->geometricConstraints()->addCoincident(farFilletCenter, farDiagLine);
-
-        // add the far distance constraint
-        Ptr<Vector3D> farLengthConstraintLabelVector = nearPoint->vectorTo(diagEndPoint);
-        farLengthConstraintLabelVector->normalize();
-        farLengthConstraintLabelVector->scaleBy(gapWidth / 8);
-        Ptr<Point3D> farLengthConstraintLabelPoint = diagEndPoint->copy();
-        farLengthConstraintLabelPoint->translateBy(farLengthConstraintLabelVector);
-
-        Ptr<SketchLinearDimension> farLengthConstraint;
-        farLengthConstraint = sketch->sketchDimensions()->addDistanceDimension(
-            farFilletCenter,
-            farDiagLine->endSketchPoint(),
-            DimensionOrientations::AlignedDimensionOrientation,
-            farLengthConstraintLabelPoint
-        );
-
-        Ptr<ModelParameter> farLengthParam = farLengthConstraint->parameter();
-        farLengthParam->value(constraintLength);
-
-        drawFilletOutline(sketch, farFilletCenter->geometry(), toolDiameter / 2);
+        Fillet rightFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
+        rightFillet.drawSketch(sketch, refPoint);
     }
+
+    m_filletSketch = sketch;
 }
 
 // create the profile of all the gaps in the joint
 void BoxJoint::createGapSketch()
 {
+    bool isOk = false;
+
     Ptr<Component> comp = m_plane->body()->parentComponent();
     Ptr<Sketches> sketches = comp->sketches();
     Ptr<Sketch> sketch = sketches->add(m_plane);
-    sketch->name("gap_profiles");
-
-    Ptr<Point3D> p1 = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> p2 = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
-    Ptr<Point3D> p3 = sketch->modelToSketchSpace(m_backPoint);
-    double distance = p1->distanceTo(p2);
-
-    Ptr<Point3D> sp1 = p1->copy();
-    Ptr<Point3D> sp3 = p3->copy();
-
-    unsigned int gapCount = m_toothCount - 1;
-    double toothWidth = distance / (double)(m_toothCount + gapCount);
-
-    Ptr<Vector3D> v1 = p1->vectorTo(p2);
-    bool isOk = v1->normalize();
-
+    
+    isOk = sketch->name("gap_profiles");
     if (!isOk)
         return;
 
-    isOk = v1->scaleBy(toothWidth);
+    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
+    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
+    Ptr<Point3D> thicknessPoint = sketch->modelToSketchSpace(m_backPoint);
 
+    Ptr<Vector3D> widthVector = startPoint->vectorTo(endPoint);
+
+    double length = widthVector->length();
+    unsigned int gapCount = m_toothCount - 1;
+    double toothWidth = length / (double)(m_toothCount + gapCount);
+
+    isOk = widthVector->normalize();
+    if (!isOk)
+        return;
+
+    isOk = widthVector->scaleBy(toothWidth);
+    if (!isOk)
+        return;
+
+    Ptr<Point3D> refPoint = startPoint->copy();
+    Ptr<Vector3D> thicknessVector = startPoint->vectorTo(thicknessPoint);
+
+    isOk = thicknessVector->normalize();
+    if (!isOk)
+        return;
+
+    isOk = thicknessVector->scaleBy(m_matThickess);
     if (!isOk)
         return;
 
@@ -354,55 +209,54 @@ void BoxJoint::createGapSketch()
 
     for (unsigned int i = 0; i < gapCount; i++)
     {
-        sp3->translateBy(v1);
-        sp3->translateBy(v1);
-
-        sp1->translateBy(v1);
-        if (i > 0)
-        {
-            sp1->translateBy(v1);
-        }
-
-        sketch->sketchCurves()->sketchLines()->addTwoPointRectangle(sp1, sp3);
+        refPoint->translateBy(widthVector);
+        if (!isOk)
+            return;
+        
+        Gap gap(refPoint, widthVector, thicknessVector);
+        gap.sketch(sketch);
+        
+        refPoint->translateBy(widthVector);
+        if (!isOk)
+            return;
     }
 
     sketch->isVisible(false);
-    m_profileSketch = sketch;
+    m_gapSketch = sketch;
 }
 
 // create the border box
 void BoxJoint::createBorderSketch()
 {
+    bool isOk = false;
+
     Ptr<Component> comp = m_plane->body()->parentComponent();
     Ptr<Sketches> sketches = comp->sketches();
     Ptr<Sketch> sketch = sketches->add(m_plane);
-    sketch->name("border_profile");
+    isOk = sketch->name("border_profile");
+    if (!isOk)
+        return;
 
-    Ptr<Point3D> p1 = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> p2 = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
+    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
+    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
     Ptr<Point3D> facePoint = sketch->modelToSketchSpace(m_plane->pointOnFace());
 
-    double distance = p1->distanceTo(p2);
+    Ptr<SketchLine> primaryEdge = sketch->sketchCurves()->sketchLines()->addByTwoPoints(startPoint, endPoint);
+    Ptr<SketchLine> perpEdge = sketch->sketchCurves()->sketchLines()->addByTwoPoints(startPoint, facePoint);
+    Ptr<PerpendicularConstraint> perpConstraint = sketch->geometricConstraints()->addPerpendicular(primaryEdge, perpEdge);
 
-    Ptr<SketchLine> se1 = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p1, p2);
-    Ptr<SketchPoint> sp1 = se1->startSketchPoint();
-    sp1->isFixed(true);
-
-    Ptr<SketchLine> se2 = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p1, facePoint);
-    Ptr<PerpendicularConstraint> perpConstraint = sketch->geometricConstraints()->addPerpendicular(se1, se2);
-
-    Ptr<Vector3D> adjustVector = findAdjustmentVector(se2, m_matThickess);
+    Ptr<Vector3D> scaleVector = findScaleVector(perpEdge, m_matThickess);
     perpConstraint->deleteMe();
-    se2->deleteMe();
+    perpEdge->deleteMe();
 
-    Ptr<Point3D> p3 = p1->copy();
-    p3->translateBy(adjustVector);
-    Ptr<Point3D> p4 = p2->copy();
-    p4->translateBy(adjustVector);
+    Ptr<Point3D> backStartPoint = startPoint->copy();
+    backStartPoint->translateBy(scaleVector);
+    Ptr<Point3D> backEndPoint = endPoint->copy();
+    backEndPoint->translateBy(scaleVector);
 
-    Ptr<SketchLine> line = sketch->sketchCurves()->sketchLines()->addByTwoPoints(p3, p4);
+    Ptr<SketchLine> line = sketch->sketchCurves()->sketchLines()->addByTwoPoints(backStartPoint, backEndPoint);
     line->isConstruction(true);
 
-    sketch->isVisible(false);
-    m_backPoint = sketch->sketchToModelSpace(p3);
+    // sketch->isVisible(false);
+    m_backPoint = sketch->sketchToModelSpace(backStartPoint);
 }

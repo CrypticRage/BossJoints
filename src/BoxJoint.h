@@ -26,6 +26,7 @@
 #include <Fusion/Sketch/Sketches.h>
 #include <Fusion/Sketch/Sketch.h>
 #include <Fusion/Sketch/SketchLine.h>
+#include <Fusion/Sketch/SketchLineList.h>
 #include <Fusion/Sketch/SketchPoint.h>
 #include <Fusion/Sketch/SketchPoints.h>
 #include <Fusion/Sketch/SketchCurves.h>
@@ -44,6 +45,8 @@
 
 #include "ProfileUtil.h"
 #include "Debug.h"
+#include "Gap.h"
+#include "Fillet.h"
 
 using namespace adsk::core;
 using namespace adsk::fusion;
@@ -57,12 +60,13 @@ private:
     double m_matThickess;
 
     Ptr<Profile> m_borderProfile;
-    Ptr<Sketch> m_profileSketch;
+    Ptr<Sketch> m_gapSketch;
+    Ptr<Sketch> m_filletSketch;
     Ptr<Point3D> m_backPoint;
 
     BoxJoint();
     ~BoxJoint();
-    Ptr<Vector3D> findAdjustmentVector(const Ptr<SketchLine>& line, double length);
+    Ptr<Vector3D> findScaleVector(const Ptr<SketchLine>& line, double length);
 
 public:
     Ptr<BRepFace> plane() const;
@@ -77,9 +81,10 @@ public:
     double matThickness() const;
     void setMatThickness(double matThickness);
 
+    bool extrudeProfiles(const Ptr<Sketch>& sketch);
     bool extrudeGaps();
+    bool extrudeFillets();
 
-    Ptr<SketchCircle> drawFilletOutline(Ptr<Sketch>& sketch, const Ptr<Point3D>& centerPoint, const double radius);
     void createFilletSketch(const double toolDiameter);
     void createGapSketch();
     void createBorderSketch();

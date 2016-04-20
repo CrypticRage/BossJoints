@@ -159,7 +159,8 @@ class OnExecuteEventHander : public adsk::core::CommandEventHandler
                 m_boxJoint->createBorderSketch();
                 m_boxJoint->createGapSketch();
                 m_boxJoint->createFilletSketch(toolDiameter);
-                // m_boxJoint->extrudeGaps();
+                m_boxJoint->extrudeGaps();
+                m_boxJoint->extrudeFillets();
             }
         }
 };
