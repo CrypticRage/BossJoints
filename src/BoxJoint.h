@@ -9,8 +9,10 @@
 #include <Fusion/BRep/BRepBody.h>
 #include <Fusion/BRep/BRepVertex.h>
 
+#include <Core/Geometry/Point2D.h>
 #include <Core/Geometry/Point3D.h>
 #include <Core/Geometry/Vector3D.h>
+#include <Core/Geometry/SurfaceEvaluator.h>
 
 #include <Fusion/Components/Component.h>
 
@@ -67,6 +69,8 @@ private:
     BoxJoint();
     ~BoxJoint();
     Ptr<Vector3D> findScaleVector(const Ptr<SketchLine>& line, double length);
+
+    void checkSurfacePoint(const Ptr<Sketch>& sketch);
 
 public:
     Ptr<BRepFace> plane() const;

@@ -225,6 +225,55 @@ void BoxJoint::createGapSketch()
     m_gapSketch = sketch;
 }
 
+void BoxJoint::checkSurfacePoint(const Ptr<Sketch>& sketch)
+{
+    bool isOk = false;
+
+    Ptr<Vector3D> faceNormal;
+    Ptr<Vector3D> perpVector;
+
+    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
+    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
+    Ptr<Point3D> facePoint = sketch->modelToSketchSpace(m_plane->pointOnFace());
+
+    Ptr<Vector3D> vector = startPoint->vectorTo(endPoint);
+    isOk = vector->scaleBy(0.5);
+
+    Ptr<SketchPoint> skFacePoint = sketch->sketchPoints()->add(facePoint);
+    isOk = skFacePoint->isFixed(true);
+
+    Ptr<SurfaceEvaluator> surfaceEval = m_plane->evaluator();
+    isOk = surfaceEval->getNormalAtPoint(facePoint, faceNormal);
+
+    perpVector = vector->crossProduct(faceNormal);
+
+    isOk = perpVector->normalize();
+    isOk = perpVector->scaleBy(m_matThickess);
+
+    Ptr<Point3D> midLinePoint = startPoint->copy();
+    isOk = midLinePoint->translateBy(vector);
+
+    Ptr<Point3D> midTestPoint = midLinePoint->copy();
+    isOk = midTestPoint->translateBy(perpVector);
+
+    Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(midLinePoint, midTestPoint);
+    isOk = testLine->isConstruction(true);
+
+    Ptr<Point2D> midTestSurfacePoint;
+    Ptr<Point2D> midTestSurfaceConvert;
+
+    isOk = surfaceEval->getParameterAtPoint(midTestPoint, midTestSurfacePoint);
+    isOk = surfaceEval->getPointAtParameter(midTestSurfaceConvert, midTestPoint);
+
+    skFacePoint = sketch->sketchPoints()->add(midTestPoint);
+    isOk = skFacePoint->isFixed(true);
+
+    skFacePoint = sketch->sketchPoints()->add(midTestSurfaceConvert);
+    isOk = skFacePoint->isFixed(true);
+
+    XTRACE(L"surface param : (%lf, %lf)\n", midTestSurfacePoint->x(), midTestSurfacePoint->y());
+}
+
 // create the border box
 void BoxJoint::createBorderSketch()
 {
@@ -234,8 +283,9 @@ void BoxJoint::createBorderSketch()
     Ptr<Sketches> sketches = comp->sketches();
     Ptr<Sketch> sketch = sketches->add(m_plane);
     isOk = sketch->name("border_profile");
-    if (!isOk)
-        return;
+    if (!isOk) return;
+
+    // checkSurfacePoint(sketch);
 
     Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
     Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
