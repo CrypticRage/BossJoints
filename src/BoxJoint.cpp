@@ -308,28 +308,53 @@ void BoxJoint::createBorderSketch()
     isOk = sketch->name("border_profile");
     if (!isOk) return;
 
-    checkSurfacePoint(sketch);
+    Ptr<Vector3D> faceNormal;
+    Ptr<Vector3D> perpVector;
 
-    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
-    Ptr<Point3D> facePoint = sketch->modelToSketchSpace(m_plane->pointOnFace());
+    Ptr<Point3D> startPoint = m_edge->startVertex()->geometry();
+    Ptr<Point3D> endPoint = m_edge->endVertex()->geometry();
+    Ptr<Point3D> facePoint = m_plane->pointOnFace();
 
-    Ptr<SketchLine> primaryEdge = sketch->sketchCurves()->sketchLines()->addByTwoPoints(startPoint, endPoint);
-    Ptr<SketchLine> perpEdge = sketch->sketchCurves()->sketchLines()->addByTwoPoints(startPoint, facePoint);
-    Ptr<PerpendicularConstraint> perpConstraint = sketch->geometricConstraints()->addPerpendicular(primaryEdge, perpEdge);
+    XTRACE(L"start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
+    XTRACE(L"end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
 
-    Ptr<Vector3D> scaleVector = findScaleVector(perpEdge, m_matThickess);
-    perpConstraint->deleteMe();
-    perpEdge->deleteMe();
+    Ptr<Vector3D> scaleVector = startPoint->vectorTo(endPoint);
+    scaleVector->scaleBy(0.5);
+
+    Ptr<SurfaceEvaluator> surfaceEval = m_plane->evaluator();
+    isOk = surfaceEval->getNormalAtPoint(facePoint, faceNormal);
+
+    perpVector = faceNormal->crossProduct(scaleVector);
+    isOk = perpVector->normalize();
+    isOk = perpVector->scaleBy(m_matThickess);
+
+    XTRACE(L"vector : (%lf, %lf, %lf)\n", scaleVector->x(), scaleVector->y(), scaleVector->z());
+    XTRACE(L"normal : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
+    XTRACE(L"cross : (%lf, %lf, %lf)\n", perpVector->x(), perpVector->y(), perpVector->z());
+
+    Ptr<Point3D> midLinePoint = startPoint->copy();
+    isOk = midLinePoint->translateBy(scaleVector);
+
+    Ptr<Point3D> midTestPoint = midLinePoint->copy();
+    isOk = midTestPoint->translateBy(perpVector);
+
+    Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
+        sketch->modelToSketchSpace(midLinePoint),
+        sketch->modelToSketchSpace(midTestPoint)
+        );
+    isOk = testLine->isConstruction(true);
 
     Ptr<Point3D> backStartPoint = startPoint->copy();
-    backStartPoint->translateBy(scaleVector);
+    backStartPoint->translateBy(perpVector);
     Ptr<Point3D> backEndPoint = endPoint->copy();
-    backEndPoint->translateBy(scaleVector);
+    backEndPoint->translateBy(perpVector);
 
-    Ptr<SketchLine> line = sketch->sketchCurves()->sketchLines()->addByTwoPoints(backStartPoint, backEndPoint);
+    Ptr<SketchLine> line = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
+        sketch->modelToSketchSpace(backStartPoint),
+        sketch->modelToSketchSpace(backEndPoint)
+    );
     line->isConstruction(true);
 
     // sketch->isVisible(false);
-    m_backPoint = sketch->sketchToModelSpace(backStartPoint);
+    m_backPoint = backStartPoint;
 }
