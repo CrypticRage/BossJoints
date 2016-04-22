@@ -232,23 +232,29 @@ void BoxJoint::checkSurfacePoint(const Ptr<Sketch>& sketch)
     Ptr<Vector3D> faceNormal;
     Ptr<Vector3D> perpVector;
 
-    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
+    Ptr<Point3D> startPoint = m_edge->startVertex()->geometry();
+    Ptr<Point3D> endPoint = m_edge->endVertex()->geometry();
     Ptr<Point3D> facePoint = sketch->modelToSketchSpace(m_plane->pointOnFace());
+
+    XTRACE(L"start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
+    XTRACE(L"end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
 
     Ptr<Vector3D> vector = startPoint->vectorTo(endPoint);
     isOk = vector->scaleBy(0.5);
 
-    Ptr<SketchPoint> skFacePoint = sketch->sketchPoints()->add(facePoint);
-    isOk = skFacePoint->isFixed(true);
-
     Ptr<SurfaceEvaluator> surfaceEval = m_plane->evaluator();
     isOk = surfaceEval->getNormalAtPoint(facePoint, faceNormal);
 
-    perpVector = vector->crossProduct(faceNormal);
-
+    perpVector = faceNormal->crossProduct(vector);
     isOk = perpVector->normalize();
     isOk = perpVector->scaleBy(m_matThickess);
+
+    XTRACE(L"vector : (%lf, %lf, %lf)\n", vector->x(), vector->y(), vector->z());
+    XTRACE(L"normal : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
+    XTRACE(L"cross : (%lf, %lf, %lf)\n", perpVector->x(), perpVector->y(), perpVector->z());
+
+    Ptr<SketchPoint> skFacePoint = sketch->sketchPoints()->add(facePoint);
+    isOk = skFacePoint->isFixed(true);
 
     Ptr<Point3D> midLinePoint = startPoint->copy();
     isOk = midLinePoint->translateBy(vector);
@@ -256,9 +262,13 @@ void BoxJoint::checkSurfacePoint(const Ptr<Sketch>& sketch)
     Ptr<Point3D> midTestPoint = midLinePoint->copy();
     isOk = midTestPoint->translateBy(perpVector);
 
-    Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(midLinePoint, midTestPoint);
+    Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
+        sketch->modelToSketchSpace(midLinePoint),
+        sketch->modelToSketchSpace(midTestPoint)
+    );
     isOk = testLine->isConstruction(true);
 
+#if 0
     Ptr<Point2D> midTestSurfacePoint;
     Ptr<Point2D> midTestSurfaceConvert;
 
@@ -272,7 +282,20 @@ void BoxJoint::checkSurfacePoint(const Ptr<Sketch>& sketch)
     isOk = skFacePoint->isFixed(true);
 
     XTRACE(L"surface param : (%lf, %lf)\n", midTestSurfacePoint->x(), midTestSurfacePoint->y());
+#endif
 }
+
+#if 0
+void BoxJoint::isPointOnSurface(const Ptr<BRepFace>& face, const Ptr<Point3D>& point)
+{
+
+}
+
+Ptr<Vector3D> BoxJoint::getSurfaceVector()
+{
+
+}
+#endif
 
 // create the border box
 void BoxJoint::createBorderSketch()
@@ -285,7 +308,7 @@ void BoxJoint::createBorderSketch()
     isOk = sketch->name("border_profile");
     if (!isOk) return;
 
-    // checkSurfacePoint(sketch);
+    checkSurfacePoint(sketch);
 
     Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
     Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());

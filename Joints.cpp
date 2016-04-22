@@ -86,27 +86,6 @@ const std::string commandId = "BoxJoints";
 const std::string commandName = "Create A Box Joint";
 const std::string commandDescription = "Create a box joint.";
 
-#if 0
-for x in range(0, toothCount) :
-if x == 0 :
-sp3.translateBy(v1)
-
-sketch.sketchCurves.sketchLines.addTwoPointRectangle(
-sketch.modelToSketchSpace(sp1),
-sketch.modelToSketchSpace(sp3)
-)
-
-sp1.translateBy(v1)
-sp1.translateBy(v1)
-sp3.translateBy(v1)
-sp3.translateBy(v1)
-#endif
-
-#if 0
-boxLines = sketch.sketchCurves.sketchLines.addTwoPointRectangle(p1, p4)
-for line in boxLines :
-line.isConstruction = True
-#endif
 
 // CommandExecuted event handler.
 class OnExecuteEventHander : public adsk::core::CommandEventHandler
@@ -157,10 +136,12 @@ class OnExecuteEventHander : public adsk::core::CommandEventHandler
             if (m_boxJoint != NULL)
             {
                 m_boxJoint->createBorderSketch();
+// #if 0
                 m_boxJoint->createGapSketch();
                 m_boxJoint->createFilletSketch(toolDiameter);
                 m_boxJoint->extrudeGaps();
                 m_boxJoint->extrudeFillets();
+// #endif
             }
         }
 };
@@ -174,14 +155,6 @@ class OnDestroyEventHandler : public adsk::core::CommandEventHandler
             adsk::terminate();
         }
 };
-
-#if 0
-global handlers
-
-# Keep the handler referenced beyond this function
-handlers.append(onDestroy)
-handlers.append(onExecute)            inputs = cmd.commandInputs
-#endif
 
 // CommandCreated event handler.
 class BoxJointCommandCreatedHandler : public CommandCreatedEventHandler
