@@ -4,14 +4,12 @@ BoxJoint::BoxJoint()
 {
 }
 
-
 BoxJoint::~BoxJoint()
 {
 }
 
 BoxJoint *BoxJoint::create(
-    const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge,
-    unsigned int toothCount, double matThickness
+    const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, double matThickness
 ) {
     // check to make sure the selected edge borders the selected face
     bool foundEdge = false;
@@ -28,11 +26,9 @@ BoxJoint *BoxJoint::create(
     BoxJoint *ptr = new BoxJoint();
     ptr->setPlane(plane);
     ptr->setEdge(edge);
-    ptr->setToothCount(toothCount);
     ptr->setMatThickness(matThickness);
-
-    // Ptr<BoxJoint> smart_ptr;
-    // smart_ptr.reset(ptr, true);
+    ptr->setStyle("Start With Tooth");
+    ptr->setToothCount(5);
 
     return ptr;
 }
@@ -106,63 +102,114 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     Ptr<Sketch> sketch = sketches->add(m_plane);
     sketch->name("fillet_profiles");
 
-    Ptr<Point3D> p1 = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> p2 = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
-    Ptr<Point3D> p3 = sketch->modelToSketchSpace(m_backPoint);
+    Ptr<Point3D> p3 = m_edgeStartPoint->copy();
+    p3->translateBy(m_thicknessVector);
 
-    double distance = p1->distanceTo(p2);
-    unsigned int gapCount = m_toothCount - 1;
-    double toothWidth = distance / (double)(m_toothCount + gapCount);
+    double toothWidth = m_edgeVector->length() / (double)(m_toothCount + m_gapCount);
     double gapWidth = toothWidth;
 
-    Ptr<Vector3D> toothWidthVector = p1->vectorTo(p2);
+    // calculate the wiggle room vector
+    Ptr<Vector3D> wiggleRoomVector = m_edgeVector->copy();
+    wiggleRoomVector->normalize();
+    wiggleRoomVector->scaleBy(m_wiggleRoom);
+
+    Ptr<Vector3D> negWiggleRoomVector = wiggleRoomVector->copy();
+    negWiggleRoomVector->scaleBy(-1.0);
+
+    // calculate the tooth width
+    Ptr<Vector3D> toothWidthVector = m_edgeVector->copy();
     toothWidthVector->normalize();
-    toothWidthVector->scaleBy(toothWidth);
+    toothWidthVector->scaleBy(toothWidth - (2 * m_wiggleRoom));
 
-    Ptr<Vector3D> gapWidthVector = p1->vectorTo(p2);
+    // calculate the gap width
+    Ptr<Vector3D> gapWidthVector = m_edgeVector->copy();
     gapWidthVector->normalize();
-    gapWidthVector->scaleBy(gapWidth);
+    gapWidthVector->scaleBy(gapWidth + (2 * m_wiggleRoom));
 
-    Ptr<Vector3D> negGapWidthVector = p2->vectorTo(p1);
-    negGapWidthVector->normalize();
-    negGapWidthVector->scaleBy(gapWidth);
+    XTRACE(L"wiggle vector: (%lf, %lf, %lf) - %lf\n", wiggleRoomVector->x(), wiggleRoomVector->y(), wiggleRoomVector->z(), wiggleRoomVector->length());
+    XTRACE(L"tooth width vector: (%lf, %lf, %lf) - %lf\n", toothWidthVector->x(), toothWidthVector->y(), toothWidthVector->z(), toothWidthVector->length());
+    XTRACE(L"gap width vector: (%lf, %lf, %lf) - %lf\n", gapWidthVector->x(), gapWidthVector->y(), gapWidthVector->z(), gapWidthVector->length());
+    XTRACE(L"tooth width : (%lf)\n", toothWidth);
+    XTRACE(L"gap width : (%lf)\n", gapWidth);
 
-    Ptr<Vector3D> thicknessVector = p3->vectorTo(p1);
-    thicknessVector->normalize();
-    thicknessVector->scaleBy(m_matThickess);
+    Ptr<Vector3D> negGapWidthVector = gapWidthVector->copy();
+    negGapWidthVector->scaleBy(-1.0);
 
     Ptr<Point3D> refPoint = p3->copy();
 
-    refPoint->translateBy(toothWidthVector);
-    Fillet refLeftFillet(refPoint, gapWidthVector, thicknessVector, toolDiameter);
-    refLeftFillet.drawRefSketch(sketch);
+    Ptr<Vector3D> negThicknessVector = m_thicknessVector->copy();
+    negThicknessVector->scaleBy(-1.0);
 
-    refPoint->translateBy(gapWidthVector);
-    Fillet refRightFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
-    refRightFillet.drawRefSketch(sketch);
-
-    Ptr<Vector3D> slideVector = toothWidthVector->copy();
-    slideVector->add(gapWidthVector);
-
-    for (unsigned int i = 1; i < gapCount; i++)
+    // create tooth first fillets
+    if (m_style == Style::StartWithTooth)
     {
-        refPoint = refLeftFillet.centerPoint();
-        refPoint->translateBy(slideVector);
+        refPoint->translateBy(toothWidthVector);
+        refPoint->translateBy(wiggleRoomVector);
 
-        Fillet leftFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
-        leftFillet.drawSketch(sketch, refPoint);
+        CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, toolDiameter);
+        refLeftFillet.drawSketch(sketch);
 
-        refPoint = refRightFillet.centerPoint();
-        refPoint->translateBy(slideVector);
+        refPoint->translateBy(gapWidthVector);
 
-        Fillet rightFillet(refPoint, negGapWidthVector, thicknessVector, toolDiameter);
-        rightFillet.drawSketch(sketch, refPoint);
+        CornerFillet refRightFillet(refPoint, negGapWidthVector, negThicknessVector, toolDiameter);
+        refRightFillet.drawSketch(sketch);
+
+        Ptr<Vector3D> slideVector = toothWidthVector->copy();
+        slideVector->add(gapWidthVector);
+
+        Ptr<Point3D> leftRefPoint = refLeftFillet.centerPoint();
+        Ptr<Point3D> rightRefPoint = refRightFillet.centerPoint();
+        FilletBase leftFillet(toolDiameter, leftRefPoint);
+        FilletBase rightFillet(toolDiameter, rightRefPoint);
+        for (unsigned int i = 1; i < m_gapCount; i++)
+        {
+            leftRefPoint->translateBy(slideVector);
+            leftFillet.setCenterPoint(leftRefPoint);
+            leftFillet.drawSketch(sketch);
+
+            rightRefPoint->translateBy(slideVector);
+            rightFillet.setCenterPoint(rightRefPoint);
+            rightFillet.drawSketch(sketch);
+        }
+    }
+
+    // create gap first fillets
+    else if (m_style == Style::StartWithGap)
+    {
+        refPoint->translateBy(gapWidthVector);
+        refPoint->translateBy(negWiggleRoomVector);
+
+        CornerFillet refLeftFillet(refPoint, negGapWidthVector, negThicknessVector, toolDiameter);
+        refLeftFillet.drawSketch(sketch);
+
+        refPoint->translateBy(toothWidthVector);
+
+        CornerFillet refRightFillet(refPoint, gapWidthVector, negThicknessVector, toolDiameter);
+        refRightFillet.drawSketch(sketch);
+
+        Ptr<Vector3D> slideVector = toothWidthVector->copy();
+        slideVector->add(gapWidthVector);
+
+        Ptr<Point3D> leftRefPoint = refLeftFillet.centerPoint();
+        Ptr<Point3D> rightRefPoint = refRightFillet.centerPoint();
+        FilletBase leftFillet(toolDiameter, leftRefPoint);
+        FilletBase rightFillet(toolDiameter, rightRefPoint);
+        for (unsigned int i = 1; i < m_toothCount; i++)
+        {
+            leftRefPoint->translateBy(slideVector);
+            leftFillet.setCenterPoint(leftRefPoint);
+            leftFillet.drawSketch(sketch);
+
+            rightRefPoint->translateBy(slideVector);
+            rightFillet.setCenterPoint(rightRefPoint);
+            rightFillet.drawSketch(sketch);
+        }
     }
 
     m_filletSketch = sketch;
 }
 
-// create the profile of all the gaps in the joint
+// create the profile of all the gaps in the joint in one sketch
 void BoxJoint::createGapSketch()
 {
     bool isOk = false;
@@ -171,133 +218,87 @@ void BoxJoint::createGapSketch()
     Ptr<Sketches> sketches = comp->sketches();
     Ptr<Sketch> sketch = sketches->add(m_plane);
     
-    isOk = sketch->name("gap_profiles");
-    if (!isOk)
-        return;
-
-    Ptr<Point3D> startPoint = sketch->modelToSketchSpace(m_edge->startVertex()->geometry());
-    Ptr<Point3D> endPoint = sketch->modelToSketchSpace(m_edge->endVertex()->geometry());
-    Ptr<Point3D> thicknessPoint = sketch->modelToSketchSpace(m_backPoint);
-
-    Ptr<Vector3D> widthVector = startPoint->vectorTo(endPoint);
-
-    double length = widthVector->length();
-    unsigned int gapCount = m_toothCount - 1;
-    double toothWidth = length / (double)(m_toothCount + gapCount);
-
-    isOk = widthVector->normalize();
-    if (!isOk)
-        return;
-
-    isOk = widthVector->scaleBy(toothWidth);
-    if (!isOk)
-        return;
-
-    Ptr<Point3D> refPoint = startPoint->copy();
-    Ptr<Vector3D> thicknessVector = startPoint->vectorTo(thicknessPoint);
-
-    isOk = thicknessVector->normalize();
-    if (!isOk)
-        return;
-
-    isOk = thicknessVector->scaleBy(m_matThickess);
-    if (!isOk)
-        return;
-
     Ptr<Profiles> profiles = sketch->profiles();
     m_borderProfile = profiles->item(0);
 
-    for (unsigned int i = 0; i < gapCount; i++)
+    isOk = sketch->name("gap_profiles");
+    if (!isOk) return;
+
+    double toothWidth = m_edgeVector->length() / (double)(m_toothCount + m_gapCount);
+    double gapWidth = toothWidth;
+
+    Ptr<Vector3D> toothVector = m_edgeVector->copy();
+    isOk = toothVector->normalize();
+    if (!isOk) return;
+    isOk = toothVector->scaleBy(toothWidth);
+    if (!isOk) return;
+
+    Ptr<Vector3D> halfGapVector = m_edgeVector->copy();
+    isOk = halfGapVector->normalize();
+    if (!isOk) return;
+    isOk = halfGapVector->scaleBy(gapWidth / 2);
+    if (!isOk) return;
+
+    Ptr<Point3D> refPoint = m_edgeStartPoint->copy();
+    for (unsigned int i = 0; i < m_gapCount; i++)
     {
-        refPoint->translateBy(widthVector);
-        if (!isOk)
-            return;
-        
-        Gap gap(refPoint, widthVector, thicknessVector);
+        isOk = refPoint->translateBy(halfGapVector);
+        if (!isOk) return;
+
+        if (m_style == Style::StartWithTooth)
+        {
+            isOk = refPoint->translateBy(toothVector);
+            if (!isOk) return;
+        }
+
+        Gap gap(refPoint, halfGapVector, m_thicknessVector, m_wiggleRoom);
         gap.sketch(sketch);
-        
-        refPoint->translateBy(widthVector);
-        if (!isOk)
-            return;
+
+        if (m_style == Style::StartWithGap)
+        {
+            isOk = refPoint->translateBy(halfGapVector);
+            if (!isOk) return;
+            isOk = refPoint->translateBy(halfGapVector);
+            if (!isOk) return;
+        }
+
+        isOk = refPoint->translateBy(halfGapVector);
+        if (!isOk) return;
     }
 
-    sketch->isVisible(false);
+    // sketch->isVisible(false);
     m_gapSketch = sketch;
 }
 
-void BoxJoint::checkSurfacePoint(const Ptr<Sketch>& sketch)
+// check the test point to see if it's on the face
+bool BoxJoint::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& plane)
 {
     bool isOk = false;
+    Ptr<Point3D> planePoint;
 
-    Ptr<Vector3D> faceNormal;
-    Ptr<Vector3D> perpVector;
+    Ptr<SurfaceEvaluator> surfaceEval = plane->evaluator();
+    Ptr<Point2D> param;
 
-    Ptr<Point3D> startPoint = m_edge->startVertex()->geometry();
-    Ptr<Point3D> endPoint = m_edge->endVertex()->geometry();
-    Ptr<Point3D> facePoint = sketch->modelToSketchSpace(m_plane->pointOnFace());
+    isOk = surfaceEval->getParameterAtPoint(testPoint, param);
+    if (!isOk) return false;
 
-    XTRACE(L"start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
-    XTRACE(L"end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
+    isOk = surfaceEval->getPointAtParameter(param, planePoint);
+    if (!isOk) return false;
 
-    Ptr<Vector3D> vector = startPoint->vectorTo(endPoint);
-    isOk = vector->scaleBy(0.5);
+    XTRACE(L"test point : (%lf, %lf, %lf)\n", testPoint->x(), testPoint->y(), testPoint->z());
+    XTRACE(L"plane point : (%lf, %lf, %lf)\n", planePoint->x(), planePoint->y(), planePoint->z());
 
-    Ptr<SurfaceEvaluator> surfaceEval = m_plane->evaluator();
-    isOk = surfaceEval->getNormalAtPoint(facePoint, faceNormal);
-
-    perpVector = faceNormal->crossProduct(vector);
-    isOk = perpVector->normalize();
-    isOk = perpVector->scaleBy(m_matThickess);
-
-    XTRACE(L"vector : (%lf, %lf, %lf)\n", vector->x(), vector->y(), vector->z());
-    XTRACE(L"normal : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
-    XTRACE(L"cross : (%lf, %lf, %lf)\n", perpVector->x(), perpVector->y(), perpVector->z());
-
-    Ptr<SketchPoint> skFacePoint = sketch->sketchPoints()->add(facePoint);
-    isOk = skFacePoint->isFixed(true);
-
-    Ptr<Point3D> midLinePoint = startPoint->copy();
-    isOk = midLinePoint->translateBy(vector);
-
-    Ptr<Point3D> midTestPoint = midLinePoint->copy();
-    isOk = midTestPoint->translateBy(perpVector);
-
-    Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
-        sketch->modelToSketchSpace(midLinePoint),
-        sketch->modelToSketchSpace(midTestPoint)
-    );
-    isOk = testLine->isConstruction(true);
-
-#if 0
-    Ptr<Point2D> midTestSurfacePoint;
-    Ptr<Point2D> midTestSurfaceConvert;
-
-    isOk = surfaceEval->getParameterAtPoint(midTestPoint, midTestSurfacePoint);
-    isOk = surfaceEval->getPointAtParameter(midTestSurfaceConvert, midTestPoint);
-
-    skFacePoint = sketch->sketchPoints()->add(midTestPoint);
-    isOk = skFacePoint->isFixed(true);
-
-    skFacePoint = sketch->sketchPoints()->add(midTestSurfaceConvert);
-    isOk = skFacePoint->isFixed(true);
-
-    XTRACE(L"surface param : (%lf, %lf)\n", midTestSurfacePoint->x(), midTestSurfacePoint->y());
-#endif
+    if (testPoint->isEqualTo(planePoint))
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
-#if 0
-void BoxJoint::isPointOnSurface(const Ptr<BRepFace>& face, const Ptr<Point3D>& point)
-{
-
-}
-
-Ptr<Vector3D> BoxJoint::getSurfaceVector()
-{
-
-}
-#endif
-
-// create the border box
+// create the border sketch
 void BoxJoint::createBorderSketch()
 {
     bool isOk = false;
@@ -309,52 +310,67 @@ void BoxJoint::createBorderSketch()
     if (!isOk) return;
 
     Ptr<Vector3D> faceNormal;
-    Ptr<Vector3D> perpVector;
 
     Ptr<Point3D> startPoint = m_edge->startVertex()->geometry();
     Ptr<Point3D> endPoint = m_edge->endVertex()->geometry();
     Ptr<Point3D> facePoint = m_plane->pointOnFace();
 
-    XTRACE(L"start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
-    XTRACE(L"end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
+    XTRACE(L"edge start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
+    XTRACE(L"edge end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
 
-    Ptr<Vector3D> scaleVector = startPoint->vectorTo(endPoint);
+    Ptr<Vector3D> scaleVector = m_edgeVector->copy();
     scaleVector->scaleBy(0.5);
 
     Ptr<SurfaceEvaluator> surfaceEval = m_plane->evaluator();
     isOk = surfaceEval->getNormalAtPoint(facePoint, faceNormal);
 
-    perpVector = faceNormal->crossProduct(scaleVector);
-    isOk = perpVector->normalize();
-    isOk = perpVector->scaleBy(m_matThickess);
+    m_thicknessVector = faceNormal->crossProduct(scaleVector);
+    isOk = m_thicknessVector->normalize();
+    isOk = m_thicknessVector->scaleBy(m_matThickess);
 
-    XTRACE(L"vector : (%lf, %lf, %lf)\n", scaleVector->x(), scaleVector->y(), scaleVector->z());
-    XTRACE(L"normal : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
-    XTRACE(L"cross : (%lf, %lf, %lf)\n", perpVector->x(), perpVector->y(), perpVector->z());
+    XTRACE(L"half edge vector: (%lf, %lf, %lf)\n", scaleVector->x(), scaleVector->y(), scaleVector->z());
+    XTRACE(L"face normal vector : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
+    XTRACE(L"thickness vector : (%lf, %lf, %lf)\n", m_thicknessVector->x(), m_thicknessVector->y(), m_thicknessVector->z());
 
     Ptr<Point3D> midLinePoint = startPoint->copy();
     isOk = midLinePoint->translateBy(scaleVector);
 
     Ptr<Point3D> midTestPoint = midLinePoint->copy();
-    isOk = midTestPoint->translateBy(perpVector);
+    // isOk = m_thicknessVector->scaleBy(-1.0);
+    isOk = midTestPoint->translateBy(m_thicknessVector);
+    // isOk = m_thicknessVector->scaleBy(-1.0);
+
+    if (!isPointOnSurface(midTestPoint, m_plane))
+    {
+        isOk = m_thicknessVector->scaleBy(-1.0);
+        XTRACE(L"isPointOnSurface() - point NOT on surface!");
+
+        midTestPoint = midLinePoint->copy();
+        isOk = midTestPoint->translateBy(m_thicknessVector);
+    }
 
     Ptr<SketchLine> testLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
         sketch->modelToSketchSpace(midLinePoint),
         sketch->modelToSketchSpace(midTestPoint)
-        );
+    );
     isOk = testLine->isConstruction(true);
 
     Ptr<Point3D> backStartPoint = startPoint->copy();
-    backStartPoint->translateBy(perpVector);
+    backStartPoint->translateBy(m_thicknessVector);
     Ptr<Point3D> backEndPoint = endPoint->copy();
-    backEndPoint->translateBy(perpVector);
+    backEndPoint->translateBy(m_thicknessVector);
 
-    Ptr<SketchLine> line = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
-        sketch->modelToSketchSpace(backStartPoint),
+    Ptr<SketchLineList> lines = sketch->sketchCurves()->sketchLines()->addThreePointRectangle(
+        sketch->modelToSketchSpace(startPoint),
+        sketch->modelToSketchSpace(endPoint),
         sketch->modelToSketchSpace(backEndPoint)
     );
-    line->isConstruction(true);
+
+    for (unsigned int i = 0; i < lines->count(); i++)
+    {
+        Ptr<SketchLine> line = lines->item(i);
+        line->isConstruction(true);
+    }
 
     // sketch->isVisible(false);
-    m_backPoint = backStartPoint;
 }

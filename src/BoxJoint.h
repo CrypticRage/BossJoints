@@ -48,7 +48,8 @@
 #include "ProfileUtil.h"
 #include "Debug.h"
 #include "Gap.h"
-#include "Fillet.h"
+#include "FilletBase.h"
+#include "CornerFillet.h"
 
 using namespace adsk::core;
 using namespace adsk::fusion;
@@ -56,21 +57,33 @@ using namespace adsk::fusion;
 class BoxJoint
 {
 private:
+    enum class Style {
+        StartWithGap,
+        StartWithTooth
+    };
+
     Ptr<BRepFace> m_plane;
     Ptr<BRepEdge> m_edge;
-    unsigned int m_toothCount;
     double m_matThickess;
+    double m_wiggleRoom;
+
+    unsigned int m_toothCount;
+    unsigned int m_gapCount;
+    Style m_style;
+
+    Ptr<Vector3D> m_thicknessVector;
+    Ptr<Vector3D> m_edgeVector;
+    Ptr<Point3D> m_edgeStartPoint;
+    Ptr<Point3D> m_edgeEndPoint;
 
     Ptr<Profile> m_borderProfile;
     Ptr<Sketch> m_gapSketch;
     Ptr<Sketch> m_filletSketch;
-    Ptr<Point3D> m_backPoint;
 
-    BoxJoint();
+    BoxJoint::BoxJoint();
     ~BoxJoint();
-    Ptr<Vector3D> findScaleVector(const Ptr<SketchLine>& line, double length);
 
-    void checkSurfacePoint(const Ptr<Sketch>& sketch);
+    Ptr<Vector3D> findScaleVector(const Ptr<SketchLine>& line, double length);
 
 public:
     Ptr<BRepFace> plane() const;
@@ -82,8 +95,18 @@ public:
     unsigned int toothCount() const;
     void setToothCount(unsigned int toothCount);
 
+    unsigned int gapCount() const;
+    void setGapCount(unsigned int gapCount);
+
     double matThickness() const;
-    void setMatThickness(double matThickness);
+    void setMatThickness(const double matThickness);
+
+    double wiggleRoom() const;
+    void setWiggleRoom(const double wiggleRoom);
+
+    void setStyle(const std::string& style);
+
+    bool isPointOnSurface(const Ptr<Point3D>& point, const Ptr<BRepFace>& plane);
 
     bool extrudeProfiles(const Ptr<Sketch>& sketch);
     bool extrudeGaps();
@@ -94,8 +117,7 @@ public:
     void createBorderSketch();
 
     static BoxJoint *create(
-        const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge,
-        unsigned int toothCount, double matThickness
+        const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, double matThickness
     );
 };
 
@@ -117,6 +139,9 @@ inline Ptr<BRepEdge> BoxJoint::edge() const
 inline void BoxJoint::setEdge(const Ptr<BRepEdge>& edge)
 {
     m_edge = edge;
+    m_edgeStartPoint = m_edge->startVertex()->geometry();
+    m_edgeEndPoint = m_edge->endVertex()->geometry();
+    m_edgeVector = m_edgeStartPoint->vectorTo(m_edgeEndPoint);
 }
 
 inline unsigned int BoxJoint::toothCount() const
@@ -126,7 +151,41 @@ inline unsigned int BoxJoint::toothCount() const
 
 inline void BoxJoint::setToothCount(unsigned int toothCount)
 {
+    if (toothCount == 0)
+        return;
+
     m_toothCount = toothCount;
+
+    if (m_style == Style::StartWithTooth)
+    {
+        m_gapCount = m_toothCount - 1;
+    }
+    else if (m_style == Style::StartWithGap)
+    {
+        m_gapCount = m_toothCount + 1;
+    }
+}
+
+inline unsigned int BoxJoint::gapCount() const
+{
+    return m_gapCount;
+}
+
+inline void BoxJoint::setGapCount(unsigned int gapCount)
+{
+    if (gapCount == 0)
+        return;
+
+    m_gapCount = gapCount;
+
+    if (m_style == Style::StartWithTooth)
+    {
+        m_toothCount = m_gapCount + 1;
+    }
+    else if (m_style == Style::StartWithGap)
+    {
+        m_toothCount = m_gapCount - 1;
+    }
 }
 
 inline double BoxJoint::matThickness() const
@@ -136,5 +195,32 @@ inline double BoxJoint::matThickness() const
 
 inline void BoxJoint::setMatThickness(double matThickness)
 {
+    if (matThickness < 0.0)
+        return;
+
     m_matThickess = matThickness;
+}
+
+inline double BoxJoint::wiggleRoom() const
+{
+    return m_wiggleRoom;
+}
+
+inline void BoxJoint::setWiggleRoom(double wiggleRoom)
+{
+    m_wiggleRoom = wiggleRoom;
+}
+
+inline void BoxJoint::setStyle(const std::string& style)
+{
+    if (style == "Start With Tooth")
+    {
+        m_style = Style::StartWithTooth;
+        setToothCount(m_toothCount);
+    }
+    else if (style == "Start With Gap")
+    {
+        m_style = Style::StartWithGap;
+        setGapCount(m_gapCount);
+    }
 }

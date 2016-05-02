@@ -19,7 +19,6 @@
 #include <Fusion/Sketch/SketchDimensions.h>
 #include <Fusion/Sketch/SketchDimension.h>
 #include <Fusion/Sketch/GeometricConstraints.h>
-#include <Fusion/Sketch/PerpendicularConstraint.h>
 #include <Fusion/Sketch/SketchAngularDimension.h>
 #include <Fusion/Sketch/SketchLinearDimension.h>
 #include <Fusion/Sketch/CoincidentConstraint.h>
@@ -41,7 +40,13 @@ private:
     Ptr<Vector3D> m_tinyWidthVector;
     Ptr<Vector3D> m_quarterWidthPerpVector;
 
-    void updateSubVectors();
+    Ptr<Point3D> m_frontPoint;
+    Ptr<Point3D> m_frontGapPoint;
+    Ptr<Point3D> m_backGapPoint;
+    Ptr<Point3D> m_angleTextPoint;
+
+    void calcPoints();
+    void calcLayoutVectors();
 
 public:
     CornerFillet(
@@ -51,5 +56,13 @@ public:
     CornerFillet();
     ~CornerFillet();
 
+    Ptr<Point3D> centerPoint() const;
+
     void drawSketch(const Ptr<Sketch>& sketch);
 };
+
+inline Ptr<Point3D> CornerFillet::centerPoint() const
+{
+    // don't copy here, we've already made a copy in FilletBase
+    return m_filletBase.centerPoint();
+}

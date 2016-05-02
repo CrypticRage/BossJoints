@@ -12,6 +12,9 @@
 #include <Core/UserInterface/CommandCreatedEvent.h>
 #include <Core/UserInterface/CommandCreatedEventArgs.h>
 #include <Core/UserInterface/CommandCreatedEventHandler.h>
+#include <Core/UserInterface/InputChangedEvent.h>
+#include <Core/UserInterface/InputChangedEventHandler.h>
+#include <Core/UserInterface/InputChangedEventArgs.h>
 #include <Core/UserInterface/CommandEvent.h>
 #include <Core/UserInterface/CommandEventArgs.h>
 #include <Core/UserInterface/CommandEventHandler.h>
@@ -35,6 +38,7 @@
 #include <Core/UserInterface/RadioButtonGroupCommandInput.h>
 #include <Core/UserInterface/ImageCommandInput.h>
 #include <Core/UserInterface/ListItems.h>
+#include <Core/UserInterface/ListItem.h>
 #include <Core/UserInterface/Selection.h>
 #include <Core/UserInterface/Selections.h>
 
@@ -73,6 +77,8 @@
 #include <Fusion/Components/Component.h>
 #include <Fusion/Construction/ConstructionPlane.h>
 
+#include <string>
+
 #include "BoxJoint.h"
 #include "Debug.h"
 
@@ -82,71 +88,89 @@ using namespace adsk::fusion;
 Ptr<Application> app;
 Ptr<UserInterface> ui;
 
-const std::string commandId = "BoxJoints";
+const std::string commandId = "Joints";
 const std::string commandName = "Create A Box Joint";
 const std::string commandDescription = "Create a box joint.";
 
 
-// CommandExecuted event handler.
+// OnExecuteEventHander
 class OnExecuteEventHander : public adsk::core::CommandEventHandler
 {
-    private:
-        BoxJoint *m_boxJoint;
+private:
+    BoxJoint *m_boxJoint;
 
-    public:
-        void notify(const Ptr<CommandEventArgs>& eventArgs) override
+public:
+    void notify(const Ptr<CommandEventArgs>& eventArgs) override
+    {
+        Ptr<Command> command = eventArgs->firingEvent()->sender();
+        if (!command)
+            return;
+            
+        Ptr<CommandInputs> inputs = command->commandInputs();
+
+        // We need access to the inputs within a command during the execute.
+        Ptr<SelectionCommandInput> planeInput = inputs->itemById(commandId + "_plane_selection");
+        Ptr<SelectionCommandInput> edgeInput = inputs->itemById(commandId + "_edge_selection");
+        Ptr<IntegerSliderCommandInput>  toothCountInput = inputs->itemById(commandId + "_tooth_count");
+        Ptr<IntegerSliderCommandInput>  gapCountInput = inputs->itemById(commandId + "_gap_count");
+        Ptr<ValueCommandInput> matThicknessInput = inputs->itemById(commandId + "_material_thickness");
+        Ptr<ValueCommandInput> toolDiamInput = inputs->itemById(commandId + "_tool_diameter");
+        Ptr<ValueCommandInput> wiggleRoomInput = inputs->itemById(commandId + "_wiggle_room");
+        Ptr<DropDownCommandInput> styleInput = inputs->itemById(commandId + "_style");
+
+        unsigned int toothCount = 5;
+        unsigned int gapCount = 5;
+        Ptr<BRepFace> plane;
+        Ptr<BRepEdge> edge;
+        double matThickness = 0.5;
+        double toolDiameter = 0.125;
+        double wiggleRoom = 0.004;
+        Ptr<ListItem> styleItem;
+        std::string styleString;
+
+        if (!toothCountInput || !gapCountInput || !planeInput || !edgeInput ||
+            !matThicknessInput || !toolDiamInput || !wiggleRoomInput || !styleInput)
         {
-            Ptr<Command> command = eventArgs->firingEvent()->sender();
-            if (!command)
-                return;
-            
-            Ptr<CommandInputs> inputs = command->commandInputs();
-
-            // We need access to the inputs within a command during the execute.
-            Ptr<CommandInput> planeInputBase = inputs->itemById(commandId + "_plane_selection");
-            Ptr<SelectionCommandInput> planeInput = planeInputBase;
-            Ptr<CommandInput> edgeInputBase = inputs->itemById(commandId + "_edge_selection");
-            Ptr<SelectionCommandInput> edgeInput = edgeInputBase;
-            Ptr<CommandInput> toothCountInputBase = inputs->itemById(commandId + "_tooth_count");
-            Ptr<IntegerSliderCommandInput> toothCountInput = toothCountInputBase;
-            Ptr<ValueCommandInput> matThicknessInput = inputs->itemById(commandId + "_material_thickness");
-            Ptr<ValueCommandInput> toolDiamInput = inputs->itemById(commandId + "_tool_diameter");
-
-            unsigned int toothCount = 10;
-            Ptr<BRepFace> plane;
-            Ptr<BRepEdge> edge;
-            double matThickness = 0.01;
-            double toolDiameter = 0.01;
-
-            if (!toothCountInput || !planeInput || !edgeInput || !matThicknessInput || !toolDiamInput)
-            {
-                ui->messageBox("One of the inputs doesn't exist.");
-            }
-            else
-            {
-                toothCount = (unsigned int)(toothCountInput->valueOne());
-                plane = planeInput->selection(0)->entity();
-                edge = edgeInput->selection(0)->entity();
-                matThickness = matThicknessInput->value();
-                toolDiameter = toolDiamInput->value();
-            }
-
-            m_boxJoint = BoxJoint::create(plane, edge, toothCount, matThickness);
-            
-            if (m_boxJoint != NULL)
-            {
-                m_boxJoint->createBorderSketch();
-// #if 0
-                m_boxJoint->createGapSketch();
-                m_boxJoint->createFilletSketch(toolDiameter);
-                m_boxJoint->extrudeGaps();
-                m_boxJoint->extrudeFillets();
-// #endif
-            }
+            ui->messageBox("One of the inputs doesn't exist.");
+            return;
         }
+
+        toothCount = (unsigned int)(toothCountInput->valueOne());
+        gapCount = (unsigned int)(gapCountInput->valueOne());
+        plane = planeInput->selection(0)->entity();
+        edge = edgeInput->selection(0)->entity();
+        matThickness = matThicknessInput->value();
+        toolDiameter = toolDiamInput->value();
+        wiggleRoom = wiggleRoomInput->value();
+        styleItem = styleInput->selectedItem();
+        styleString = styleItem->name();
+
+        m_boxJoint = BoxJoint::create(plane, edge, matThickness);
+        if (m_boxJoint == NULL)
+        {
+            return;
+        }
+
+        if (toothCountInput->isVisible())
+        {
+            m_boxJoint->setToothCount(toothCount);
+        }
+        if (gapCountInput->isVisible())
+        {
+            m_boxJoint->setGapCount(gapCount);
+        }
+        m_boxJoint->setWiggleRoom(wiggleRoom);
+        m_boxJoint->setStyle(styleString);
+
+        m_boxJoint->createBorderSketch();
+        m_boxJoint->createGapSketch();
+        m_boxJoint->createFilletSketch(toolDiameter);
+        m_boxJoint->extrudeGaps();
+        m_boxJoint->extrudeFillets();
+    }
 };
 
-// CommandDestroyed event handler
+// OnDestroyEventHandler
 class OnDestroyEventHandler : public adsk::core::CommandEventHandler
 {
     public:
@@ -156,110 +180,169 @@ class OnDestroyEventHandler : public adsk::core::CommandEventHandler
         }
 };
 
-// CommandCreated event handler.
-class BoxJointCommandCreatedHandler : public CommandCreatedEventHandler
+// Event handler for the inputChanged event.
+class OnInputChangedEventHandler : public InputChangedEventHandler
 {
-    private:
-        OnExecuteEventHander m_onExecuteHandler;
-        OnDestroyEventHandler m_onDestroyHandler;
+private:
+    Ptr<IntegerSliderCommandInput> m_toothCountInput;
+    Ptr<IntegerSliderCommandInput> m_gapCountInput;
 
-    public:
-        void notify(const Ptr<CommandCreatedEventArgs>& eventArgs) override
+public:
+    void notify(const Ptr<InputChangedEventArgs>& eventArgs) override
+    {
+        // Code to react to the event.
+        if (eventArgs->input()->name() == "Style")
         {
-            if (!eventArgs)
-                return;
+            Ptr<DropDownCommandInput> styleInput = eventArgs->input();
+            if (styleInput->selectedItem()->name() == "Start With Tooth")
+            {
+                m_toothCountInput->isEnabled(true);
+                m_gapCountInput->isEnabled(false);
 
-            Ptr<Command> command = eventArgs->command();
+                m_toothCountInput->isVisible(true);
+                m_gapCountInput->isVisible(false);
+            }
+            else if (styleInput->selectedItem()->name() == "Start With Gap")
+            {
+                m_toothCountInput->isEnabled(false);
+                m_gapCountInput->isEnabled(true);
 
-            if (!command)
-                return;
-
-            Ptr<CommandEvent> onDestroy = command->destroy();
-            if (!onDestroy)
-                return;
-
-            bool isOk = onDestroy->add(&m_onDestroyHandler);
-            if (!isOk)
-                return;
-
-            Ptr<CommandEvent> onExecute = command->execute();
-            if (!onExecute)
-                return;
-
-            isOk = onExecute->add(&m_onExecuteHandler);
-            if (!isOk)
-                return;
-
-            Ptr<CommandInputs> inputs = command->commandInputs();
-            if (!inputs)
-                return;
-
-            // Create plane selection input
-            Ptr<SelectionCommandInput> planeSelectionInput = inputs->addSelectionInput(
-                commandId + "_plane_selection",
-                "Select Plane",
-                "Select the primary plane..."
-            );
-            planeSelectionInput->setSelectionLimits(1, 1);
-            planeSelectionInput->addSelectionFilter("PlanarFaces");
-
-            // Create edge selection input
-            Ptr<SelectionCommandInput> edgeSelectionInput = inputs->addSelectionInput(
-                commandId + "_edge_selection",
-                "Select Edge",
-                "Select the primary edge..."
-            );
-            edgeSelectionInput->setSelectionLimits(1, 1);
-            edgeSelectionInput->addSelectionFilter("LinearEdges");
-
-            // Create tooth count input
-            inputs->addIntegerSliderCommandInput(commandId + "_tooth_count", "Tooth Count", 1, 20);
-
-#if 0
-            // Create tooth depth input
-            Ptr<DistanceValueCommandInput> toothDepthInput = inputs->addDistanceValueCommandInput(
-                commandId + "_tooth_depth",
-                "Tooth Depth",
-                ValueInput::createByReal(.01)
-            );
-            if (!toothDepthInput)
-                return;
-            // toothDepthInput->setManipulator(Point3D::create(0, 0, 0), Vector3D::create(1, 0, 0));
-            toothDepthInput->minimumValue(0);
-            toothDepthInput->isMinimumValueInclusive(false);
-            toothDepthInput->maximumValue(10);
-            toothDepthInput->isMaximumValueInclusive(true);
-#endif
-
-            // Create material thickness input
-            Ptr<ValueCommandInput> materialThicknessInput = inputs->addValueInput(
-                commandId + "_material_thickness",
-                "Material Thickness",
-                "in",
-                ValueInput::createByString("0.5 in")
-            );
-            if (!materialThicknessInput)
-                return;
-            /*
-            materialThicknessInput->setManipulator(Point3D::create(0, 0, 0), Vector3D::create(1, 0, 0));
-            materialThicknessInput->minimumValue(0);
-            materialThicknessInput->isMinimumValueInclusive(false);
-            materialThicknessInput->maximumValue(10);
-            materialThicknessInput->isMaximumValueInclusive(true);
-            */
-
-            // Create tool diameter input
-            Ptr<ValueCommandInput> toolDiameterInput = inputs->addValueInput(
-                commandId + "_tool_diameter",
-                "Tool Diameter",
-                "in",
-                ValueInput::createByString("0.125 in")
-            );
-            if (!toolDiameterInput)
-                return;
+                m_toothCountInput->isVisible(false);
+                m_gapCountInput->isVisible(true);
+            }
         }
+    }
+
+    void setCountInputs(const Ptr<IntegerSliderCommandInput>& gapInput, const Ptr<IntegerSliderCommandInput>& toothInput)
+    {
+        m_toothCountInput = toothInput;
+        m_gapCountInput = gapInput;
+    }
 };
-static BoxJointCommandCreatedHandler s_commandCreatedHandler;
+
+// JointsCommandCreatedHandler
+class JointsCommandCreatedHandler : public CommandCreatedEventHandler
+{
+private:
+    Ptr<DropDownCommandInput> m_styleInput;
+    Ptr<IntegerSliderCommandInput> m_gapCountInput;
+    Ptr<IntegerSliderCommandInput> m_toothCountInput;
+
+    OnExecuteEventHander m_onExecuteHandler;
+    OnDestroyEventHandler m_onDestroyHandler;
+    OnInputChangedEventHandler m_onInputChangedHandler;
+
+public:
+    void notify(const Ptr<CommandCreatedEventArgs>& eventArgs) override
+    {
+        if (!eventArgs)
+            return;
+
+        Ptr<Command> command = eventArgs->command();
+
+        if (!command)
+            return;
+
+        Ptr<CommandEvent> onDestroy = command->destroy();
+        if (!onDestroy)
+            return;
+
+        bool isOk = onDestroy->add(&m_onDestroyHandler);
+        if (!isOk)
+            return;
+
+        Ptr<CommandEvent> onExecute = command->execute();
+        if (!onExecute)
+            return;
+
+        isOk = onExecute->add(&m_onExecuteHandler);
+        if (!isOk)
+            return;
+
+        Ptr<CommandInputs> inputs = command->commandInputs();
+        if (!inputs)
+            return;
+
+        Ptr<InputChangedEvent> inputChangedEvent = command->inputChanged();
+        if (!inputChangedEvent)
+            return;
+
+        isOk = inputChangedEvent->add(&m_onInputChangedHandler);
+        if (!isOk) return;
+
+        // Create plane selection input
+        Ptr<SelectionCommandInput> planeSelectionInput = inputs->addSelectionInput(
+            commandId + "_plane_selection",
+            "Select Plane",
+            "Select the primary plane..."
+        );
+        planeSelectionInput->setSelectionLimits(1, 1);
+        planeSelectionInput->addSelectionFilter("PlanarFaces");
+
+        // Create edge selection input
+        Ptr<SelectionCommandInput> edgeSelectionInput = inputs->addSelectionInput(
+            commandId + "_edge_selection",
+            "Select Edge",
+            "Select the primary edge..."
+        );
+        edgeSelectionInput->setSelectionLimits(1, 1);
+        edgeSelectionInput->addSelectionFilter("LinearEdges");
+
+        // Create style input
+        m_styleInput = inputs->addDropDownCommandInput(
+            commandId + "_style",
+            "Style",
+            DropDownStyles::TextListDropDownStyle
+            );
+        if (!m_styleInput)
+            return;
+        Ptr<ListItems> styleItems = m_styleInput->listItems();
+        if (!styleItems)
+            return;
+        styleItems->add("Start With Tooth", true, "");
+        styleItems->add("Start With Gap", false, "");
+
+        // Create tooth count input
+        m_toothCountInput = inputs->addIntegerSliderCommandInput(commandId + "_tooth_count", "Tooth Count", 1, 20);
+
+        // Create gap count input
+        m_gapCountInput = inputs->addIntegerSliderCommandInput(commandId + "_gap_count", "Gap Count", 1, 20);
+        m_gapCountInput->isVisible(false);
+        m_gapCountInput->isEnabled(false);
+        m_onInputChangedHandler.setCountInputs(m_gapCountInput, m_toothCountInput);
+
+        // Create material thickness input
+        Ptr<ValueCommandInput> materialThicknessInput = inputs->addValueInput(
+            commandId + "_material_thickness",
+            "Material Thickness",
+            "in",
+            ValueInput::createByString("0.5 in")
+        );
+        if (!materialThicknessInput)
+            return;
+
+        // Create tool diameter input
+        Ptr<ValueCommandInput> toolDiameterInput = inputs->addValueInput(
+            commandId + "_tool_diameter",
+            "Tool Diameter",
+            "in",
+            ValueInput::createByString("0.125 in")
+        );
+        if (!toolDiameterInput)
+            return;
+        
+        // Create wiggle room input
+        Ptr<ValueCommandInput> wiggleRoomInput = inputs->addValueInput(
+            commandId + "_wiggle_room",
+            "Wiggle Room",
+            "in",
+            ValueInput::createByString("0.005 in")
+        );
+        if (!wiggleRoomInput)
+            return;
+    }
+};
+static JointsCommandCreatedHandler s_commandCreatedHandler;
 
 // Create the command definition.
 Ptr<CommandDefinition> createCommandDefinition()

@@ -1,4 +1,4 @@
-#include "Fillet.h"
+#include "CornerFillet.h"
 
 Fillet::Fillet(
     const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& widthVector,

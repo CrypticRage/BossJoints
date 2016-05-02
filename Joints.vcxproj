@@ -95,8 +95,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\BoxJoint.cpp" />
+    <ClCompile Include="src\CornerFillet.cpp" />
     <ClCompile Include="src\Debug.cpp" />
-    <ClCompile Include="src\Fillet.cpp" />
+    <ClCompile Include="src\FilletBase.cpp" />
     <ClCompile Include="src\Gap.cpp" />
     <ClCompile Include="src\ProfileUtil.cpp" />
   </ItemGroup>
@@ -108,8 +109,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\BoxJoint.h" />
+    <ClInclude Include="src\CornerFillet.h" />
     <ClInclude Include="src\Debug.h" />
-    <ClInclude Include="src\Fillet.h" />
+    <ClInclude Include="src\FilletBase.h" />
     <ClInclude Include="src\Gap.h" />
     <ClInclude Include="src\ProfileUtil.h" />
   </ItemGroup>
