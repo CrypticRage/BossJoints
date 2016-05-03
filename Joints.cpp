@@ -89,8 +89,8 @@ Ptr<Application> app;
 Ptr<UserInterface> ui;
 
 const std::string commandId = "Joints";
-const std::string commandName = "Create A Box Joint";
-const std::string commandDescription = "Create a box joint.";
+const std::string commandName = "Create A Joint";
+const std::string commandDescription = "Create a joint.";
 
 
 // OnExecuteEventHander
@@ -118,8 +118,8 @@ public:
         Ptr<ValueCommandInput> wiggleRoomInput = inputs->itemById(commandId + "_wiggle_room");
         Ptr<DropDownCommandInput> styleInput = inputs->itemById(commandId + "_style");
 
-        unsigned int toothCount = 5;
-        unsigned int gapCount = 5;
+        int toothCount = 5;
+        int gapCount = 5;
         Ptr<BRepFace> plane;
         Ptr<BRepEdge> edge;
         double matThickness = 0.5;
@@ -135,8 +135,8 @@ public:
             return;
         }
 
-        toothCount = (unsigned int)(toothCountInput->valueOne());
-        gapCount = (unsigned int)(gapCountInput->valueOne());
+        toothCount = toothCountInput->valueOne();
+        gapCount = gapCountInput->valueOne();
         plane = planeInput->selection(0)->entity();
         edge = edgeInput->selection(0)->entity();
         matThickness = matThicknessInput->value();
@@ -144,6 +144,12 @@ public:
         wiggleRoom = wiggleRoomInput->value();
         styleItem = styleInput->selectedItem();
         styleString = styleItem->name();
+
+        if (m_boxJoint != NULL)
+        {
+            delete m_boxJoint;
+            m_boxJoint = NULL;
+        }
 
         m_boxJoint = BoxJoint::create(plane, edge, matThickness);
         if (m_boxJoint == NULL)
@@ -153,11 +159,13 @@ public:
 
         if (toothCountInput->isVisible())
         {
-            m_boxJoint->setToothCount(toothCount);
+            XTRACE(L"setting tooth count : (%i)\n", toothCount);
+            m_boxJoint->setToothCount((unsigned int)toothCount);
         }
         if (gapCountInput->isVisible())
         {
-            m_boxJoint->setGapCount(gapCount);
+            XTRACE(L"setting gap count : (%i)\n", gapCount);
+            m_boxJoint->setGapCount((unsigned int)gapCount);
         }
         m_boxJoint->setWiggleRoom(wiggleRoom);
         m_boxJoint->setStyle(styleString);
@@ -303,10 +311,10 @@ public:
         styleItems->add("Start With Gap", false, "");
 
         // Create tooth count input
-        m_toothCountInput = inputs->addIntegerSliderCommandInput(commandId + "_tooth_count", "Tooth Count", 1, 20);
+        m_toothCountInput = inputs->addIntegerSliderCommandInput(commandId + "_tooth_count", "Tooth Count", 2, 20);
 
         // Create gap count input
-        m_gapCountInput = inputs->addIntegerSliderCommandInput(commandId + "_gap_count", "Gap Count", 1, 20);
+        m_gapCountInput = inputs->addIntegerSliderCommandInput(commandId + "_gap_count", "Gap Count", 2, 20);
         m_gapCountInput->isVisible(false);
         m_gapCountInput->isEnabled(false);
         m_onInputChangedHandler.setCountInputs(m_gapCountInput, m_toothCountInput);

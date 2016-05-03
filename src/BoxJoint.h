@@ -81,11 +81,12 @@ private:
     Ptr<Sketch> m_filletSketch;
 
     BoxJoint::BoxJoint();
-    ~BoxJoint();
 
     Ptr<Vector3D> findScaleVector(const Ptr<SketchLine>& line, double length);
 
 public:
+    ~BoxJoint();
+
     Ptr<BRepFace> plane() const;
     void setPlane(const Ptr<BRepFace>& plane);
 

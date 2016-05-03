@@ -129,7 +129,9 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     XTRACE(L"wiggle vector: (%lf, %lf, %lf) - %lf\n", wiggleRoomVector->x(), wiggleRoomVector->y(), wiggleRoomVector->z(), wiggleRoomVector->length());
     XTRACE(L"tooth width vector: (%lf, %lf, %lf) - %lf\n", toothWidthVector->x(), toothWidthVector->y(), toothWidthVector->z(), toothWidthVector->length());
     XTRACE(L"gap width vector: (%lf, %lf, %lf) - %lf\n", gapWidthVector->x(), gapWidthVector->y(), gapWidthVector->z(), gapWidthVector->length());
+    XTRACE(L"tooth count : (%i)\n", m_toothCount);
     XTRACE(L"tooth width : (%lf)\n", toothWidth);
+    XTRACE(L"gap count : (%i)\n", m_gapCount);
     XTRACE(L"gap width : (%lf)\n", gapWidth);
 
     Ptr<Vector3D> negGapWidthVector = gapWidthVector->copy();
@@ -271,6 +273,7 @@ void BoxJoint::createGapSketch()
 }
 
 // check the test point to see if it's on the face
+// https://forums.autodesk.com/t5/api-and-scripts/checking-whether-a-2d-point-lies-within-a-flat-surface-profile/m-p/6304081
 bool BoxJoint::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& plane)
 {
     bool isOk = false;
@@ -290,7 +293,14 @@ bool BoxJoint::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFac
 
     if (testPoint->isEqualTo(planePoint))
     {
-        return true;
+        if (surfaceEval->isParameterOnFace(param))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
     else
     {
