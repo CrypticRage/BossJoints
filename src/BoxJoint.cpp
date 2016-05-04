@@ -109,24 +109,24 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     double gapWidth = toothWidth;
 
     // calculate the wiggle room vector
-    Ptr<Vector3D> wiggleRoomVector = m_edgeVector->copy();
-    wiggleRoomVector->normalize();
-    wiggleRoomVector->scaleBy(m_wiggleRoom);
+    Ptr<Vector3D> halfWiggleRoomVector = m_edgeVector->copy();
+    halfWiggleRoomVector->normalize();
+    halfWiggleRoomVector->scaleBy(m_wiggleRoom * 0.5);
 
-    Ptr<Vector3D> negWiggleRoomVector = wiggleRoomVector->copy();
-    negWiggleRoomVector->scaleBy(-1.0);
+    Ptr<Vector3D> negHalfWiggleRoomVector = halfWiggleRoomVector->copy();
+    negHalfWiggleRoomVector->scaleBy(-1.0);
 
     // calculate the tooth width
     Ptr<Vector3D> toothWidthVector = m_edgeVector->copy();
     toothWidthVector->normalize();
-    toothWidthVector->scaleBy(toothWidth - (2 * m_wiggleRoom));
+    toothWidthVector->scaleBy(toothWidth - m_wiggleRoom);
 
     // calculate the gap width
     Ptr<Vector3D> gapWidthVector = m_edgeVector->copy();
     gapWidthVector->normalize();
-    gapWidthVector->scaleBy(gapWidth + (2 * m_wiggleRoom));
+    gapWidthVector->scaleBy(gapWidth + m_wiggleRoom);
 
-    XTRACE(L"wiggle vector: (%lf, %lf, %lf) - %lf\n", wiggleRoomVector->x(), wiggleRoomVector->y(), wiggleRoomVector->z(), wiggleRoomVector->length());
+    // XTRACE(L"wiggle vector: (%lf, %lf, %lf) - %lf\n", wiggleRoomVector->x(), wiggleRoomVector->y(), wiggleRoomVector->z(), wiggleRoomVector->length());
     XTRACE(L"tooth width vector: (%lf, %lf, %lf) - %lf\n", toothWidthVector->x(), toothWidthVector->y(), toothWidthVector->z(), toothWidthVector->length());
     XTRACE(L"gap width vector: (%lf, %lf, %lf) - %lf\n", gapWidthVector->x(), gapWidthVector->y(), gapWidthVector->z(), gapWidthVector->length());
     XTRACE(L"tooth count : (%i)\n", m_toothCount);
@@ -146,7 +146,7 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     if (m_style == Style::StartWithTooth)
     {
         refPoint->translateBy(toothWidthVector);
-        refPoint->translateBy(wiggleRoomVector);
+        refPoint->translateBy(halfWiggleRoomVector);
 
         CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, toolDiameter);
         refLeftFillet.drawSketch(sketch);
@@ -179,7 +179,7 @@ void BoxJoint::createFilletSketch(const double toolDiameter)
     else if (m_style == Style::StartWithGap)
     {
         refPoint->translateBy(gapWidthVector);
-        refPoint->translateBy(negWiggleRoomVector);
+        refPoint->translateBy(negHalfWiggleRoomVector);
 
         CornerFillet refLeftFillet(refPoint, negGapWidthVector, negThicknessVector, toolDiameter);
         refLeftFillet.drawSketch(sketch);
@@ -268,7 +268,6 @@ void BoxJoint::createGapSketch()
         if (!isOk) return;
     }
 
-    // sketch->isVisible(false);
     m_gapSketch = sketch;
 }
 
@@ -320,13 +319,10 @@ void BoxJoint::createBorderSketch()
     if (!isOk) return;
 
     Ptr<Vector3D> faceNormal;
-
-    Ptr<Point3D> startPoint = m_edge->startVertex()->geometry();
-    Ptr<Point3D> endPoint = m_edge->endVertex()->geometry();
     Ptr<Point3D> facePoint = m_plane->pointOnFace();
 
-    XTRACE(L"edge start : (%lf, %lf, %lf)\n", startPoint->x(), startPoint->y(), startPoint->z());
-    XTRACE(L"edge end : (%lf, %lf, %lf)\n", endPoint->x(), endPoint->y(), endPoint->z());
+    XTRACE(L"edge start : (%lf, %lf, %lf)\n", m_edgeStartPoint->x(), m_edgeStartPoint->y(), m_edgeStartPoint->z());
+    XTRACE(L"edge end : (%lf, %lf, %lf)\n", m_edgeEndPoint->x(), m_edgeEndPoint->y(), m_edgeEndPoint->z());
 
     Ptr<Vector3D> scaleVector = m_edgeVector->copy();
     scaleVector->scaleBy(0.5);
@@ -342,13 +338,11 @@ void BoxJoint::createBorderSketch()
     XTRACE(L"face normal vector : (%lf, %lf, %lf)\n", faceNormal->x(), faceNormal->y(), faceNormal->z());
     XTRACE(L"thickness vector : (%lf, %lf, %lf)\n", m_thicknessVector->x(), m_thicknessVector->y(), m_thicknessVector->z());
 
-    Ptr<Point3D> midLinePoint = startPoint->copy();
+    Ptr<Point3D> midLinePoint = m_edgeStartPoint->copy();
     isOk = midLinePoint->translateBy(scaleVector);
 
     Ptr<Point3D> midTestPoint = midLinePoint->copy();
-    // isOk = m_thicknessVector->scaleBy(-1.0);
     isOk = midTestPoint->translateBy(m_thicknessVector);
-    // isOk = m_thicknessVector->scaleBy(-1.0);
 
     if (!isPointOnSurface(midTestPoint, m_plane))
     {
@@ -365,14 +359,14 @@ void BoxJoint::createBorderSketch()
     );
     isOk = testLine->isConstruction(true);
 
-    Ptr<Point3D> backStartPoint = startPoint->copy();
+    Ptr<Point3D> backStartPoint = m_edgeStartPoint->copy();
     backStartPoint->translateBy(m_thicknessVector);
-    Ptr<Point3D> backEndPoint = endPoint->copy();
+    Ptr<Point3D> backEndPoint = m_edgeEndPoint->copy();
     backEndPoint->translateBy(m_thicknessVector);
 
     Ptr<SketchLineList> lines = sketch->sketchCurves()->sketchLines()->addThreePointRectangle(
-        sketch->modelToSketchSpace(startPoint),
-        sketch->modelToSketchSpace(endPoint),
+        sketch->modelToSketchSpace(m_edgeStartPoint),
+        sketch->modelToSketchSpace(m_edgeEndPoint),
         sketch->modelToSketchSpace(backEndPoint)
     );
 
@@ -381,6 +375,4 @@ void BoxJoint::createBorderSketch()
         Ptr<SketchLine> line = lines->item(i);
         line->isConstruction(true);
     }
-
-    // sketch->isVisible(false);
 }

@@ -12,7 +12,7 @@ Gap::Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, con
 
     m_wiggleRoomVector = m_halfWidthVector->copy();
     m_wiggleRoomVector->normalize();
-    m_wiggleRoomVector->scaleBy(wiggleRoom);
+    m_wiggleRoomVector->scaleBy(wiggleRoom / 2);
 
     m_negWiggleRoomVector = m_wiggleRoomVector->copy();
     m_negWiggleRoomVector->scaleBy(-1.0);
