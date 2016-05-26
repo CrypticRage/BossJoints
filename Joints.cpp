@@ -79,7 +79,7 @@
 
 #include <string>
 
-#include "BoxJoint.h"
+#include "Joint.h"
 #include "Debug.h"
 
 using namespace adsk::core;
@@ -97,7 +97,7 @@ const std::string commandDescription = "Create a joint.";
 class OnExecuteEventHander : public adsk::core::CommandEventHandler
 {
 private:
-    BoxJoint *m_boxJoint;
+    Joint *m_boxJoint;
 
 public:
     void notify(const Ptr<CommandEventArgs>& eventArgs) override
@@ -151,7 +151,7 @@ public:
             m_boxJoint = NULL;
         }
 
-        m_boxJoint = BoxJoint::create(plane, edge, matThickness);
+        m_boxJoint = Joint::create(plane, edge, styleString);
         if (m_boxJoint == NULL)
         {
             return;
@@ -167,14 +167,13 @@ public:
             XTRACE(L"setting gap count : (%i)\n", gapCount);
             m_boxJoint->setGapCount((unsigned int)gapCount);
         }
-        m_boxJoint->setWiggleRoom(wiggleRoom);
-        m_boxJoint->setStyle(styleString);
 
-        m_boxJoint->createBorderSketch();
-        m_boxJoint->createGapSketch();
-        m_boxJoint->createFilletSketch(toolDiameter);
-        m_boxJoint->extrudeGaps();
-        m_boxJoint->extrudeFillets();
+        m_boxJoint->setWiggleRoom(wiggleRoom);
+        m_boxJoint->setMatThickness(matThickness);
+        m_boxJoint->setToolDiameter(toolDiameter);
+
+        m_boxJoint->sketch();
+        m_boxJoint->extrude();
     }
 };
 

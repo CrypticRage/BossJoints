@@ -94,12 +94,14 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="src\BoxJoint.cpp" />
     <ClCompile Include="src\CornerFillet.cpp" />
     <ClCompile Include="src\Debug.cpp" />
     <ClCompile Include="src\FilletBase.cpp" />
     <ClCompile Include="src\Gap.cpp" />
-    <ClCompile Include="src\ProfileUtil.cpp" />
+    <ClCompile Include="src\GapFirstBoxJoint.cpp" />
+    <ClCompile Include="src\Joint.cpp" />
+    <ClCompile Include="src\ToothFirstBoxJoint.cpp" />
+    <ClCompile Include="src\Util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Joints.manifest">
@@ -108,12 +110,14 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\BoxJoint.h" />
     <ClInclude Include="src\CornerFillet.h" />
     <ClInclude Include="src\Debug.h" />
     <ClInclude Include="src\FilletBase.h" />
     <ClInclude Include="src\Gap.h" />
-    <ClInclude Include="src\ProfileUtil.h" />
+    <ClInclude Include="src\GapFirstBoxJoint.h" />
+    <ClInclude Include="src\Joint.h" />
+    <ClInclude Include="src\ToothFirstBoxJoint.h" />
+    <ClInclude Include="src\Util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
