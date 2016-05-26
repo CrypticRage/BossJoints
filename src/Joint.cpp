@@ -157,8 +157,9 @@ bool Joint::extrudeProfiles(const Ptr<Sketch>& sketch)
     return true;
 }
 
-bool Joint::createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures, int count)
+bool Joint::createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures, Ptr<Vector3D> dirVector, int count)
 {
+    bool isOk = false;
     Ptr<Features> features = comp->features();
 
     // create the input for rectangular pattern
@@ -170,11 +171,26 @@ bool Joint::createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollect
         gapFeatures,
         m_edge,
         ValueInput::createByReal(count),
-        ValueInput::createByReal(-m_gapSpacing),
+        ValueInput::createByReal(m_gapSpacing),
         PatternDistanceType::SpacingPatternDistanceType
     );
     if (!rectPatternInput)
         return false;
+
+    // check the direction
+    Ptr<Vector3D> patternDirVector = rectPatternInput->directionOne();
+    isOk = patternDirVector->normalize();
+    if (!isOk) return false;
+
+    isOk = dirVector->normalize();
+    if (!isOk) return false;
+
+    if (!dirVector->isEqualTo(patternDirVector))
+    {
+        Ptr<ValueInput> currentDistance = rectPatternInput->distanceOne();
+        Ptr<ValueInput> newDistance = ValueInput::createByReal(-currentDistance->realValue());
+        isOk = rectPatternInput->distanceOne(newDistance);
+    }
 
     // create the rectangular pattern
     Ptr<RectangularPatternFeature> rectangularFeature = rectPatterns->add(rectPatternInput);

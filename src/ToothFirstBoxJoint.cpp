@@ -131,7 +131,7 @@ bool ToothFirstBoxJoint::extrude()
     extrudeProfiles(m_filletSketch);
 
     Ptr<ObjectCollection> gapFeatures = Util::filterMatchingFeatures(comp, m_refGap.boundingBox());
-    createGapPattern(comp, gapFeatures, m_gapCount);
+    createGapPattern(comp, gapFeatures, m_edgeVector, m_gapCount);
 
     return true;
 }

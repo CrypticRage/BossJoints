@@ -64,7 +64,10 @@ protected:
     Ptr<SketchLine> m_midLine;
 
     bool extrudeProfiles(const Ptr<Sketch>& sketch);
-    bool createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures, int count);
+    bool createGapPattern(
+        const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures,
+        Ptr<Vector3D> dirVector, int count
+    );
     void updateToothWidth();
     void updateGapWidth();
 

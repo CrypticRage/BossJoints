@@ -211,7 +211,7 @@ bool GapFirstBoxJoint::extrude()
     extrudeProfiles(m_midFilletSketch);
 
     Ptr<ObjectCollection> midGapFeatures = Util::filterMatchingFeatures(comp, m_refMidGap.boundingBox());
-    createGapPattern(comp, midGapFeatures, m_gapCount - 2);
+    createGapPattern(comp, midGapFeatures, m_edgeVector, m_gapCount - 2);
 
     extrudeProfiles(m_edgeSketch);
 
