@@ -6,4 +6,4 @@ Box Joint:
 [sample]: images/sample.png "Box Joint Sample"
 
 ![alt text][sample2]
-[sample2]: images/9f08f557-9a50-4b7d-8e47-b45ddb616ee8.png "Box Sample"
+[sample2]: images/box-sample.png "Box Sample"
