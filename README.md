@@ -1,5 +1,5 @@
-# Joints
-This is an addon for Autodesk Fusion 360 that assists in drawing different types of joint geometry.
+# BossJoints
+BossJoints is an addon for Autodesk Fusion 360 that assists in drawing different types of joint geometry intended to be cut by a CNC router.
 
 Box Joint:
 ![alt text][sample]

@@ -3,7 +3,7 @@
 	"type":	"script",
 	"author":	"Erik Bolton",
 	"description":	{
-		"":	"A collection of joints designed to be cut by a CNC router."
+		"":	"BossJoints is an addon for Autodesk Fusion 360 that assists in drawing different types of joint geometry intended to be cut by a CNC router."
 	},
 	"supportedOS":	"windows",
 	"editEnabled":	true,
