@@ -1,6 +1,8 @@
 #include "Gap.h"
 
-Gap::Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, const Ptr<Vector3D>& thicknessVector, double wiggleRoom)
+using namespace BossJoints;
+
+BossJoints::Gap::Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, const Ptr<Vector3D>& thicknessVector, double wiggleRoom)
 {
     setRefPoint(refPoint);
     setWiggleRoom(wiggleRoom);
@@ -8,20 +10,20 @@ Gap::Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, con
     setThicknessVector(thicknessVector);
 }
 
-Gap::Gap()
+BossJoints::Gap::Gap()
 {
 }
 
-Gap::~Gap()
+BossJoints::Gap::~Gap()
 {
 }
 
-Ptr<BoundingBox3D> Gap::boundingBox()
+Ptr<BoundingBox3D> BossJoints::Gap::boundingBox()
 {
     return m_boundingBox->copy();;
 }
 
-void Gap::expandBoundingBox()
+void BossJoints::Gap::expandBoundingBox()
 {
     Ptr<Point3D> p1 = m_refPoint->copy();
     p1->translateBy(m_negHalfWidthVector);
@@ -73,7 +75,7 @@ void Gap::expandBoundingBox()
 }
 
 // create the profile of all the gaps in the joint
-void Gap::sketch(const Ptr<Sketch>& sketch)
+void BossJoints::Gap::sketch(const Ptr<Sketch>& sketch)
 {
     Ptr<Point3D> p1 = m_refPoint->copy();
     p1->translateBy(m_negHalfWidthVector);

@@ -1,15 +1,17 @@
 #include "ToothFirstBoxJoint.h"
 
-ToothFirstBoxJoint::ToothFirstBoxJoint()
+using namespace BossJoints;
+
+BossJoints::ToothFirstBoxJoint::ToothFirstBoxJoint()
 {
 }
 
 
-ToothFirstBoxJoint::~ToothFirstBoxJoint()
+BossJoints::ToothFirstBoxJoint::~ToothFirstBoxJoint()
 {
 }
 
-bool ToothFirstBoxJoint::sketch()
+bool BossJoints::ToothFirstBoxJoint::sketch()
 {
     bool isOk = false;
 
@@ -34,7 +36,7 @@ bool ToothFirstBoxJoint::sketch()
 }
 
 // create the sketch for all the dogbone fillets
-void ToothFirstBoxJoint::createFilletSketch(const Ptr<Sketch>& sketch)
+void BossJoints::ToothFirstBoxJoint::createFilletSketch(const Ptr<Sketch>& sketch)
 {
     Ptr<Point3D> p3 = m_edgeStartPoint->copy();
     p3->translateBy(m_thicknessVector);
@@ -75,20 +77,20 @@ void ToothFirstBoxJoint::createFilletSketch(const Ptr<Sketch>& sketch)
     refPoint->translateBy(toothWidthVector);
     refPoint->translateBy(halfWiggleRoomVector);
 
-    CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter);
-    refLeftFillet.drawSketch(sketch);
+    CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    refLeftFillet.drawSketch();
 
     refPoint->translateBy(gapWidthVector);
 
-    CornerFillet refRightFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter);
-    refRightFillet.drawSketch(sketch);
+    CornerFillet refRightFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    refRightFillet.drawSketch();
 
     Ptr<Vector3D> slideVector = toothWidthVector->copy();
     slideVector->add(gapWidthVector);
     m_gapSpacing = slideVector->length();
 }
 
-void ToothFirstBoxJoint::createGapSketch(const Ptr<Sketch>& sketch)
+void BossJoints::ToothFirstBoxJoint::createGapSketch(const Ptr<Sketch>& sketch)
 {
     bool isOk = false;
 
@@ -123,7 +125,7 @@ void ToothFirstBoxJoint::createGapSketch(const Ptr<Sketch>& sketch)
     m_gapSketch = sketch;
 }
 
-bool ToothFirstBoxJoint::extrude()
+bool BossJoints::ToothFirstBoxJoint::extrude()
 {
     Ptr<Component> comp = m_plane->body()->parentComponent();
 

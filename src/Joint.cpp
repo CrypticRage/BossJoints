@@ -3,16 +3,18 @@
 #include "ToothFirstBoxJoint.h"
 #include "GapFirstBoxJoint.h"
 
-Joint::Joint()
+using namespace BossJoints;
+
+BossJoints::Joint::Joint()
 {
 }
 
 
-Joint::~Joint()
+BossJoints::Joint::~Joint()
 {
 }
 
-Joint *Joint::create(const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, const std::string& style)
+BossJoints::Joint *BossJoints::Joint::create(const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, const std::string& style)
 {
     // check to make sure the selected edge borders the selected face
     bool foundEdge = false;
@@ -28,11 +30,11 @@ Joint *Joint::create(const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, cons
 
     Joint *ptr = NULL;
 
-    if (style == "Start With Tooth")
+    if (style == STYLE_SELECT::OPTION_TOOTH)
     {
         ptr = new ToothFirstBoxJoint();
     }
-    else if (style == "Start With Gap")
+    else if (style == STYLE_SELECT::OPTION_GAP)
     {
         ptr = new GapFirstBoxJoint();
     }
@@ -46,7 +48,7 @@ Joint *Joint::create(const Ptr<BRepFace>& plane, const Ptr<BRepEdge>& edge, cons
     return ptr;
 }
 
-void Joint::createBorderSketch()
+void BossJoints::Joint::createBorderSketch()
 {
     bool isOk = false;
 
@@ -113,6 +115,9 @@ void Joint::createBorderSketch()
         sketch->modelToSketchSpace(backEndPoint)
     );
 
+    if (lines == nullptr)
+        return;
+
     for (unsigned int i = 0; i < lines->count(); i++)
     {
         Ptr<SketchLine> line = lines->item(i);
@@ -120,7 +125,7 @@ void Joint::createBorderSketch()
     }
 }
 
-bool Joint::extrudeProfiles(const Ptr<Sketch>& sketch)
+bool BossJoints::Joint::extrudeProfiles(const Ptr<Sketch>& sketch)
 {
     Ptr<ObjectCollection> profileCollection = Util::stripBorderProfile(sketch, m_borderProfile);
 
@@ -157,7 +162,7 @@ bool Joint::extrudeProfiles(const Ptr<Sketch>& sketch)
     return true;
 }
 
-bool Joint::createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures, Ptr<Vector3D> dirVector, int count)
+bool BossJoints::Joint::createGapPattern(const Ptr<Component>& comp, const Ptr<ObjectCollection>& gapFeatures, Ptr<Vector3D> dirVector, int count)
 {
     bool isOk = false;
     Ptr<Features> features = comp->features();

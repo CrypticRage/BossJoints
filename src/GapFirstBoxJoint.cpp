@@ -1,15 +1,19 @@
 #include "GapFirstBoxJoint.h"
 
-GapFirstBoxJoint::GapFirstBoxJoint()
+#include "Util.h"
+
+using namespace BossJoints;
+
+BossJoints::GapFirstBoxJoint::GapFirstBoxJoint()
 {
 }
 
 
-GapFirstBoxJoint::~GapFirstBoxJoint()
+BossJoints::GapFirstBoxJoint::~GapFirstBoxJoint()
 {
 }
 
-bool GapFirstBoxJoint::sketch()
+bool BossJoints::GapFirstBoxJoint::sketch()
 {
     bool isOk = false;
 
@@ -34,18 +38,31 @@ bool GapFirstBoxJoint::sketch()
     createBorderSketch();
     createEdgeGapSketch(m_edgeSketch);
     createEdgeFilletSketch(m_edgeSketch);
-    createMidGapSketch(m_midGapSketch);
-    createMidFilletSketch(m_midFilletSketch);
+
+    if (m_gapCount > 2)
+    {
+        createMidGapSketch(m_midGapSketch);
+        createMidFilletSketch(m_midFilletSketch);
+    }
 
     return true;
 }
 
-void GapFirstBoxJoint::createEdgeFilletSketch(const Ptr<Sketch>& sketch)
+void BossJoints::GapFirstBoxJoint::createEdgeFilletSketch(const Ptr<Sketch>& sketch)
 {
     bool isOk = false;
+    Ptr<Component> comp = m_plane->body()->parentComponent();
 
     Ptr<Point3D> refPoint = m_edgeStartPoint->copy();
     refPoint->translateBy(m_thicknessVector);
+
+    // calculate wiggle room vectors
+    Ptr<Vector3D> halfWiggleRoomVector = m_edgeVector->copy();
+    halfWiggleRoomVector->normalize();
+    halfWiggleRoomVector->scaleBy(m_wiggleRoom * 0.5);
+
+    Ptr<Vector3D> negHalfWiggleRoomVector = halfWiggleRoomVector->copy();
+    negHalfWiggleRoomVector->scaleBy(-1.0);
 
     // calculate gap vectors
     Ptr<Vector3D> gapWidthVector = m_edgeVector->copy();
@@ -59,20 +76,43 @@ void GapFirstBoxJoint::createEdgeFilletSketch(const Ptr<Sketch>& sketch)
     Ptr<Vector3D> negThicknessVector = m_thicknessVector->copy();
     negThicknessVector->scaleBy(-1.0);
 
+    // start corner
+    refPoint->translateBy(negHalfWiggleRoomVector);
+    CornerFillet startCornerFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    if (startCornerFillet.onSurface(m_plane, sketch))
+    {
+        startCornerFillet.drawSketch();
+        Util::drawSurfaceOrientationVectors(m_plane, comp, startCornerFillet.centerPoint());
+    }
+
+    refPoint->translateBy(halfWiggleRoomVector);
     refPoint->translateBy(gapWidthVector);
 
-    CornerFillet leftFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter);
-    leftFillet.drawSketch(sketch);
+    // start inside
+    CornerFillet startInsideFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    startInsideFillet.drawSketch();
 
     refPoint = m_edgeEndPoint->copy();
     refPoint->translateBy(m_thicknessVector);
+    refPoint->translateBy(halfWiggleRoomVector);
+
+    // end corner
+    CornerFillet endCornerFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    if (endCornerFillet.onSurface(m_plane, sketch))
+    {
+        endCornerFillet.drawSketch();
+        Util::drawSurfaceOrientationVectors(m_plane, comp, endCornerFillet.centerPoint());
+    }
+
+    refPoint->translateBy(negHalfWiggleRoomVector);
     refPoint->translateBy(negGapWidthVector);
 
-    CornerFillet rightFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter);
-    rightFillet.drawSketch(sketch);
+    // end inside
+    CornerFillet endInsideFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    endInsideFillet.drawSketch();
 }
 
-void GapFirstBoxJoint::createMidFilletSketch(const Ptr<Sketch>& sketch)
+void BossJoints::GapFirstBoxJoint::createMidFilletSketch(const Ptr<Sketch>& sketch)
 {
     bool isOk = false;
 
@@ -109,8 +149,8 @@ void GapFirstBoxJoint::createMidFilletSketch(const Ptr<Sketch>& sketch)
     refPoint->translateBy(negHalfWiggleRoomVector);
     refPoint->translateBy(toothWidthVector);
 
-    CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter);
-    refLeftFillet.drawSketch(sketch);
+    CornerFillet refLeftFillet(refPoint, gapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    refLeftFillet.drawSketch();
 
     Ptr<Vector3D> slideVector = toothWidthVector->copy();
     slideVector->add(gapWidthVector);
@@ -119,11 +159,11 @@ void GapFirstBoxJoint::createMidFilletSketch(const Ptr<Sketch>& sketch)
     isOk = refPoint->translateBy(gapWidthVector);
     if (!isOk) return;
 
-    CornerFillet refRightFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter);
-    refRightFillet.drawSketch(sketch);
+    CornerFillet refRightFillet(refPoint, negGapWidthVector, negThicknessVector, m_toolDiameter, sketch);
+    refRightFillet.drawSketch();
 }
 
-void GapFirstBoxJoint::createMidGapSketch(const Ptr<Sketch>& sketch)
+void BossJoints::GapFirstBoxJoint::createMidGapSketch(const Ptr<Sketch>& sketch)
 {
     bool isOk = false;
 
@@ -158,7 +198,7 @@ void GapFirstBoxJoint::createMidGapSketch(const Ptr<Sketch>& sketch)
     m_refMidGap.sketch(sketch);
 }
 
-void GapFirstBoxJoint::createEdgeGapSketch(const Ptr<Sketch>& sketch)
+void BossJoints::GapFirstBoxJoint::createEdgeGapSketch(const Ptr<Sketch>& sketch)
 {
     bool isOk = false;
 
@@ -203,7 +243,7 @@ void GapFirstBoxJoint::createEdgeGapSketch(const Ptr<Sketch>& sketch)
     endPointGap.sketch(sketch);
 }
 
-bool GapFirstBoxJoint::extrude()
+bool BossJoints::GapFirstBoxJoint::extrude()
 {
     Ptr<Component> comp = m_plane->body()->parentComponent();
 

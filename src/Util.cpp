@@ -1,7 +1,19 @@
 #include "Util.h"
 
+using namespace BossJoints;
+
+void BossJoints::Util::printVector(const Ptr<Vector3D>& vector)
+{
+    XTRACE(L"<%lf, %lf, %lf>\n", vector->x(), vector->y(), vector->z());
+}
+
+void BossJoints::Util::printPoint(const Ptr<Point3D>& point)
+{
+    XTRACE(L"(%lf, %lf, %lf)\n", point->x(), point->y(), point->z());
+}
+
 // print info for the given profile
-void Util::printProfile(const Ptr<Profile> &profile)
+void BossJoints::Util::printProfile(const Ptr<Profile> &profile)
 {
     Ptr<Point3D> maxPoint = profile->boundingBox()->maxPoint();
     Ptr<Point3D> minPoint = profile->boundingBox()->minPoint();
@@ -12,7 +24,7 @@ void Util::printProfile(const Ptr<Profile> &profile)
 }
 
 // print info for all profiles in the given sketch
-void Util::printProfiles(const Ptr<Sketch>& sketch)
+void BossJoints::Util::printProfiles(const Ptr<Sketch>& sketch)
 {
     Ptr<Profiles> profiles = sketch->profiles();
     Ptr<Profile> profile;
@@ -24,9 +36,54 @@ void Util::printProfiles(const Ptr<Sketch>& sketch)
     }
 }
 
-// check the test point to see if it's on the face
+void BossJoints::Util::drawSurfaceOrientationVectors(const Ptr<BRepFace>& face, const Ptr<Component>& comp, const Ptr<Point3D>& origin)
+{
+    Ptr<Surface> surface = face->geometry();
+    if (!surface) return;
+
+    Ptr<Plane> plane;
+    if (surface->surfaceType() == PlaneSurfaceType)
+    {
+        plane = surface;
+    }
+    if (!plane) return;
+
+    Ptr<Vector3D> u = plane->uDirection();
+    Ptr<Vector3D> v = plane->vDirection();
+
+    XTRACE(L"u : <%lf, %lf, %lf>\n", u->x(), u->y(), u->z());
+    XTRACE(L"v : <%lf, %lf, %lf>\n", v->x(), v->y(), v->z());
+
+    Ptr<SurfaceEvaluator> surfaceEval = face->evaluator();
+    // Ptr<Point3D> facePoint = face->pointOnFace();
+    Ptr<Point3D> facePoint = origin;
+    
+    Ptr<Point3D> uEndPoint = facePoint->copy();
+    u->scaleBy(4.0);
+    uEndPoint->translateBy(u);
+
+    Ptr<Point3D> vEndPoint = facePoint->copy();
+    v->scaleBy(2.0);
+    vEndPoint->translateBy(v);
+
+    Ptr<Sketches> sketches = comp->sketches();
+    Ptr<Sketch> sketch = sketches->add(face);
+    sketch->isComputeDeferred(true);
+
+    Ptr<SketchLine> uLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
+        sketch->modelToSketchSpace(facePoint),
+        sketch->modelToSketchSpace(uEndPoint)
+    );
+
+    Ptr<SketchLine> vLine = sketch->sketchCurves()->sketchLines()->addByTwoPoints(
+        sketch->modelToSketchSpace(facePoint),
+        sketch->modelToSketchSpace(vEndPoint)
+    );
+}
+
+// check a test point to see if it's on a given face
 // https://forums.autodesk.com/t5/api-and-scripts/checking-whether-a-2d-point-lies-within-a-flat-surface-profile/m-p/6304081
-bool Util::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& plane)
+bool BossJoints::Util::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& plane)
 {
     bool isOk = false;
     Ptr<Point3D> planePoint;
@@ -42,6 +99,7 @@ bool Util::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& 
 
     XTRACE(L"test point : (%lf, %lf, %lf)\n", testPoint->x(), testPoint->y(), testPoint->z());
     XTRACE(L"plane point : (%lf, %lf, %lf)\n", planePoint->x(), planePoint->y(), planePoint->z());
+    XTRACE(L"plane param : (%lf, %lf)\n", param->x(), param->y());
 
     if (testPoint->isEqualTo(planePoint))
     {
@@ -61,7 +119,7 @@ bool Util::isPointOnSurface(const Ptr<Point3D>& testPoint, const Ptr<BRepFace>& 
 }
 
 
-Ptr<Vector3D> Util::findScaleVector(const Ptr<SketchLine>& line, double length)
+Ptr<Vector3D> BossJoints::Util::findScaleVector(const Ptr<SketchLine>& line, double length)
 {
     Ptr<Point3D> sp = line->startSketchPoint()->geometry();
     Ptr<Point3D> ep = line->endSketchPoint()->geometry();
@@ -73,7 +131,7 @@ Ptr<Vector3D> Util::findScaleVector(const Ptr<SketchLine>& line, double length)
     return v1;
 }
 
-Ptr<ObjectCollection> Util::filterMatchingFeatures(const Ptr<Component>& comp, const Ptr<BoundingBox3D>& box)
+Ptr<ObjectCollection> BossJoints::Util::filterMatchingFeatures(const Ptr<Component>& comp, const Ptr<BoundingBox3D>& box)
 {
     Ptr<ObjectCollection> featureCollection = ObjectCollection::create();
     Ptr<Features> features = comp->features();
@@ -134,7 +192,7 @@ Ptr<ObjectCollection> Util::filterMatchingFeatures(const Ptr<Component>& comp, c
 }
 
 // compare the bounding boxes of two profiles and see if they are equal
-bool Util::profileBoxesEqual(const Ptr<Profile> &p1, const Ptr<Profile> &p2)
+bool BossJoints::Util::profileBoxesEqual(const Ptr<Profile> &p1, const Ptr<Profile> &p2)
 {
     Ptr<Point3D> p1MinPoint = p1->boundingBox()->minPoint();
     Ptr<Point3D> p1MaxPoint = p1->boundingBox()->maxPoint();
@@ -148,7 +206,7 @@ bool Util::profileBoxesEqual(const Ptr<Profile> &p1, const Ptr<Profile> &p2)
 
 // compare each profile in a sketch and try to match against
 // the provided border profile
-Ptr<ObjectCollection> Util::stripBorderProfile(const Ptr<Sketch>& sketch, const Ptr<Profile> &borderProfile)
+Ptr<ObjectCollection> BossJoints::Util::stripBorderProfile(const Ptr<Sketch>& sketch, const Ptr<Profile> &borderProfile)
 {
     Ptr<ObjectCollection> profileCollection = ObjectCollection::create();
     Ptr<Profiles> profiles = sketch->profiles();

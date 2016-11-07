@@ -15,43 +15,46 @@
 using namespace adsk::core;
 using namespace adsk::fusion;
 
-class Gap
+namespace BossJoints
 {
-private:
-    Ptr<Point3D> m_refPoint;
-    Ptr<Vector3D> m_halfWidthVector;
-    Ptr<Vector3D> m_thicknessVector;
-    double m_wiggleRoom;
+    class Gap
+    {
+    private:
+        Ptr<Point3D> m_refPoint;
+        Ptr<Vector3D> m_halfWidthVector;
+        Ptr<Vector3D> m_thicknessVector;
+        double m_wiggleRoom;
 
-    Ptr<Vector3D> m_negHalfWidthVector;
-    Ptr<Vector3D> m_wiggleRoomVector;
-    Ptr<Vector3D> m_negWiggleRoomVector;
+        Ptr<Vector3D> m_negHalfWidthVector;
+        Ptr<Vector3D> m_wiggleRoomVector;
+        Ptr<Vector3D> m_negWiggleRoomVector;
 
-    Ptr<BoundingBox3D> m_boundingBox;
+        Ptr<BoundingBox3D> m_boundingBox;
 
-    void expandBoundingBox();
+        void expandBoundingBox();
 
-public:
-    Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, const Ptr<Vector3D>& thicknessVector, double wiggleRoom);
-    Gap();
-    ~Gap();
+    public:
+        Gap(const Ptr<Point3D>& refPoint, const Ptr<Vector3D>& halfWidthVector, const Ptr<Vector3D>& thicknessVector, double wiggleRoom);
+        Gap();
+        ~Gap();
 
-    void sketch(const Ptr<Sketch>& sketch);
-    Ptr<BoundingBox3D> boundingBox();
+        void sketch(const Ptr<Sketch>& sketch);
+        Ptr<BoundingBox3D> boundingBox();
 
-    void setRefPoint(const Ptr<Point3D>& refPoint);
-    void setHalfWidthVector(const Ptr<Vector3D>& halfWidthVector);
-    void setThicknessVector(const Ptr<Vector3D>& thicknessVector);
-    void setWiggleRoom(double wiggleRoom);
-};
+        void setRefPoint(const Ptr<Point3D>& refPoint);
+        void setHalfWidthVector(const Ptr<Vector3D>& halfWidthVector);
+        void setThicknessVector(const Ptr<Vector3D>& thicknessVector);
+        void setWiggleRoom(double wiggleRoom);
+    };
+}
 
-inline void Gap::setRefPoint(const Ptr<Point3D>& refPoint)
+inline void BossJoints::Gap::setRefPoint(const Ptr<Point3D>& refPoint)
 {
     m_refPoint = refPoint->copy();
     m_boundingBox = BoundingBox3D::create(m_refPoint, m_refPoint);
 }
 
-inline void Gap::setHalfWidthVector(const Ptr<Vector3D>& halfWidthVector)
+inline void BossJoints::Gap::setHalfWidthVector(const Ptr<Vector3D>& halfWidthVector)
 {
     m_halfWidthVector = halfWidthVector->copy();
 
@@ -69,12 +72,12 @@ inline void Gap::setHalfWidthVector(const Ptr<Vector3D>& halfWidthVector)
     m_negWiggleRoomVector->scaleBy(-1.0);
 }
 
-inline void Gap::setThicknessVector(const Ptr<Vector3D>& thicknessVector)
+inline void BossJoints::Gap::setThicknessVector(const Ptr<Vector3D>& thicknessVector)
 {
     m_thicknessVector = thicknessVector->copy();
 }
 
-inline void Gap::setWiggleRoom(double wiggleRoom)
+inline void BossJoints::Gap::setWiggleRoom(double wiggleRoom)
 {
     m_wiggleRoom = wiggleRoom;
 }

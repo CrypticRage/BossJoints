@@ -1,1 +1,0 @@
-{"autodeskProduct":"Fusion360","type":"script","author":"Erik Bolton","description":{"":"This is an addon for Autodesk Fusion 360 that assists in drawing different types of joint geometry."},"supportedOS":"windows|mac","editEnabled":true,"sourcewindows":"Joints.vcxproj","sourcemac":"Joints.xcodeproj"}

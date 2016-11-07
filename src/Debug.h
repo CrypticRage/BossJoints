@@ -11,6 +11,8 @@
 #define XTRACE
 #endif
 
-void XTrace0(LPCTSTR lpszText);
-
-void XTrace(LPCTSTR lpszFormat, ...);
+namespace BossJoints
+{
+    void XTrace0(LPCTSTR lpszText);
+    void XTrace(LPCTSTR lpszFormat, ...);
+}

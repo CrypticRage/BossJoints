@@ -1,11 +1,11 @@
 #include "Debug.h"
 
-void XTrace0(LPCTSTR lpszText)
+void BossJoints::XTrace0(LPCTSTR lpszText)
 {
     ::OutputDebugString(lpszText);
 }
 
-void XTrace(LPCTSTR lpszFormat, ...)
+void BossJoints::XTrace(LPCTSTR lpszFormat, ...)
 {
     va_list args;
     va_start(args, lpszFormat);

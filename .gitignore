@@ -1,0 +1,13 @@
+# ignore build dirs
+Debug/*
+Release/*
+
+# ignore VS solution files
+*.suo
+*.sln
+*.opensdf
+*.sdf
+*.user
+
+# ignore library
+*.dll

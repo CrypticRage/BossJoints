@@ -1,0 +1,11 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"script",
+	"author":	"Erik Bolton",
+	"description":	{
+		"":	"A collection of joints designed to be cut by a CNC router."
+	},
+	"supportedOS":	"windows",
+	"editEnabled":	true,
+	"sourcewindows":	"BossJoints.vcxproj"
+}

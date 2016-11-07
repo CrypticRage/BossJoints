@@ -4,31 +4,34 @@
 #include "CornerFillet.h"
 #include "Gap.h"
 
-class GapFirstBoxJoint : public Joint
+namespace BossJoints
 {
-private:
-    Gap m_refMidGap;
-    Ptr<Sketch> m_midGapSketch;
-    Ptr<Sketch> m_midFilletSketch;
-    Ptr<Sketch> m_edgeSketch;
+    class GapFirstBoxJoint : public Joint
+    {
+    private:
+        Gap m_refMidGap;
+        Ptr<Sketch> m_midGapSketch;
+        Ptr<Sketch> m_midFilletSketch;
+        Ptr<Sketch> m_edgeSketch;
 
-public:
-    GapFirstBoxJoint();
-    ~GapFirstBoxJoint();
+        void createMidGapSketch(const Ptr<Sketch>& sketch);
+        void createEdgeFilletSketch(const Ptr<Sketch>& sketch);
+        void createMidFilletSketch(const Ptr<Sketch>& sketch);
+        void createEdgeGapSketch(const Ptr<Sketch>& sketch);
 
-    virtual bool sketch();
-    void createMidGapSketch(const Ptr<Sketch>& sketch);
-    void createEdgeFilletSketch(const Ptr<Sketch>& sketch);
-    void createMidFilletSketch(const Ptr<Sketch>& sketch);
-    void createEdgeGapSketch(const Ptr<Sketch>& sketch);
+    public:
+        GapFirstBoxJoint();
+        ~GapFirstBoxJoint();
 
-    virtual bool extrude();
+        virtual bool sketch();
+        virtual bool extrude();
 
-    virtual void setGapCount(unsigned int gapCount);
-    virtual void setToothCount(unsigned int toothCount);
-};
+        virtual void setGapCount(unsigned int gapCount);
+        virtual void setToothCount(unsigned int toothCount);
+    };
+}
 
-inline void GapFirstBoxJoint::setGapCount(unsigned int gapCount)
+inline void BossJoints::GapFirstBoxJoint::setGapCount(unsigned int gapCount)
 {
     if (gapCount < 2)
         return;
@@ -40,7 +43,7 @@ inline void GapFirstBoxJoint::setGapCount(unsigned int gapCount)
     updateGapWidth();
 }
 
-inline void GapFirstBoxJoint::setToothCount(unsigned int toothCount)
+inline void BossJoints::GapFirstBoxJoint::setToothCount(unsigned int toothCount)
 {
     if (toothCount < 1)
         return;
